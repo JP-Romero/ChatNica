@@ -14,6 +14,12 @@ CONFIGURACIÓN DE FIREBASE — ChatNica
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import { 
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL
+} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js";
+import {
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
@@ -21,6 +27,7 @@ import {
   addDoc, 
   query, 
   orderBy, 
+  where,
   onSnapshot,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
@@ -53,6 +60,7 @@ const db = initializeFirestore(app, {
 });
 
 const auth = getAuth(app);
+const storage = getStorage(app);
 
 // 🔹 EXPORTAR PARA USAR EN app.js
-export { db, auth, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, signInAnonymously, onAuthStateChanged };
+export { db, auth, storage, ref, uploadBytes, getDownloadURL, collection, addDoc, query, orderBy, where, onSnapshot, serverTimestamp, signInAnonymously, onAuthStateChanged };

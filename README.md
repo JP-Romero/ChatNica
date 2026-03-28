@@ -37,14 +37,35 @@
      service cloud.firestore {
        match /databases/{database}/documents {
          match /messages/{message} {
-           allow read, write: if request.auth != null;
+           // Cualquiera puede leer mensajes
+           allow read: if request.auth != null;
+           // Solo el autor puede escribir (o cualquiera autenticado para este chat)
+           allow create: if request.auth != null;
+           // No se permite borrar ni editar mensajes
+           allow update, delete: if false;
          }
        }
      }
      ```
    - Pulsa en "Publicar".
 
-4. **Registra tu Aplicación y obtén las credenciales:**
+4. **Configura Firebase Storage (para imágenes):**
+   - Ve a **Build (Compilación) > Storage**.
+   - Pulsa "Comenzar" y selecciona "Modo de prueba".
+   - Reglas recomendadas:
+     ```javascript
+     rules_version = '2';
+     service firebase.storage {
+       match /b/{bucket}/o {
+         match /chats/{allPaths=**} {
+           allow read: if request.auth != null;
+           allow write: if request.auth != null && request.resource.size < 5 * 1024 * 1024; // Máx 5MB
+         }
+       }
+     }
+     ```
+
+5. **Registra tu Aplicación y obtén las credenciales:**
    - En la página de "Información general del proyecto", pulsa el icono de **Web** (</>).
    - Registra tu aplicación (ej: ChatNica Web).
    - Copia el objeto `firebaseConfig` que verás en pantalla (apiKey, authDomain, projectId, etc.).
