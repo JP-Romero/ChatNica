@@ -219,3 +219,4 @@ function updatePendingIndicator(isPending, count) {
 window.addEventListener('online', updateStatus);
 window.addEventListener('offline', updateStatus);
 updateStatus();
+

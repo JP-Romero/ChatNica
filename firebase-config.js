@@ -14,14 +14,15 @@ CONFIGURACIÓN DE FIREBASE — ChatNica
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import { 
-  getFirestore, 
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   collection, 
   addDoc, 
   query, 
   orderBy, 
   onSnapshot,
-  serverTimestamp,
-  enableIndexedDbPersistence
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 import { 
   getAuth, 
@@ -30,28 +31,28 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
 // 🔹 PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE
+// Obtén estos datos en: https://console.firebase.google.com > Tu Proyecto > Icono Web (</>)
 const firebaseConfig = {
-  apiKey: "TU_API_KEY_AQUI",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROJECT_ID",
-  storageBucket: "TU_PROYECTO.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId: "TU_APP_ID"
+  apiKey: "AIzaSyAgQzLJU_bx5iUtiKOkkb7POeXIK3VpGu0",
+  authDomain: "chatnica-8648d.firebaseapp.com",
+  projectId: "chatnica-8648d",
+  storageBucket: "chatnica-8648d.firebasestorage.app",
+  messagingSenderId: "9515659791",
+  appId: "1:9515659791:web:60cd2400fdff67b53a297a",
+  measurementId: "G-WENPBJD47J"
 };
 
 // 🔹 INICIALIZAR FIREBASE
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
 
-// Habilitar persistencia offline
-enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code == 'failed-precondition') {
-        console.warn('La persistencia falló: múltiples pestañas abiertas');
-    } else if (err.code == 'unimplemented') {
-        console.warn('El navegador no soporta persistencia');
-    }
+// Inicializar Firestore con soporte multi-pestaña y persistencia moderna
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
 });
+
+const auth = getAuth(app);
 
 // 🔹 EXPORTAR PARA USAR EN app.js
 export { db, auth, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, signInAnonymously, onAuthStateChanged };
