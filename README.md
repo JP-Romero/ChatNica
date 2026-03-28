@@ -110,4 +110,10 @@ Si estás desarrollando en tu PC y quieres ver cómo queda en tu móvil, tienes 
    firebase deploy
 
    # Opción B: GitHub Pages
-   # Sube los archivos a tu repo y activa Pages en Settings
+   1. Sube los archivos a tu repositorio.
+   2. Ve a **Settings > Pages** y activa el despliegue desde la rama `main`.
+   3. **IMPORTANTE (Firebase):** Debes autorizar el dominio de GitHub para que el chat funcione.
+      - Ve a la [Consola de Firebase](https://console.firebase.google.com).
+      - Menú lateral > **Authentication** > pestaña **Settings**.
+      - Busca la sección **Dominios autorizados**.
+      - Haz clic en "Añadir dominio" y pon: `jp-romero.github.io`.
