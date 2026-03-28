@@ -59,14 +59,21 @@ loginForm.addEventListener('submit', async (e) => {
   try {
     localStorage.setItem('chatnica_name', name);
     if (!auth.currentUser) {
+      // Si la configuración es la de ejemplo, Firebase lanzará un error
       await signInAnonymously(auth);
     } else {
         // Si ya hay usuario pero faltaba el nombre, solo mostrar chat
         showChat(name);
     }
   } catch (error) {
-    console.error("Error al entrar:", error);
-    alert("Hubo un error al intentar entrar. Revisa tu conexión.");
+    console.error("Error al entrar (Firebase):", error);
+    
+    // Mensaje amigable para el desarrollador si no ha configurado sus credenciales
+    if (error.message && error.message.includes('API_KEY_INVALID')) {
+        alert("¡Casi listo! Por favor, configura tus credenciales reales de Firebase en 'firebase-config.js' para que el chat funcione.");
+    } else {
+        alert("Hubo un error al intentar entrar. " + (error.code || error.message));
+    }
   }
 });
 
