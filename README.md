@@ -75,6 +75,11 @@
 
 - **"Error al entrar"**: Asegúrate de haber activado el inicio de sesión **Anónimo** en la pestaña Authentication.
 - **No se envían los mensajes**: Revisa que las **Reglas de Firestore** permitan `read, write: if request.auth != null;`. Si dice `if false;`, nadie podrá escribir nada.
+- **Error 404 al configurar GitHub Actions (Service Account)**: Este error sucede porque la API de IAM no está activa en tu proyecto de Google Cloud.
+   1. Ve a la [Google Cloud Console](https://console.cloud.google.com/apis/library/iamcredentials.googleapis.com).
+   2. Asegúrate de tener seleccionado tu proyecto `chatnica-8648d`.
+   3. Haz clic en **HABILITAR**.
+   4. Vuelve a ejecutar `firebase init hosting:github` en tu terminal.
 
 ## 📱 Cómo ver la App en tu Celular (Desarrollo)
 
