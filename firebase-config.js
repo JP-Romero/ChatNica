@@ -31,6 +31,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
 // 🔹 PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE
+// Obtén estos datos en: https://console.firebase.google.com > Tu Proyecto > Icono Web (</>)
 const firebaseConfig = {
   apiKey: "TU_API_KEY_AQUI",
   authDomain: "TU_PROYECTO.firebaseapp.com",
