@@ -20,17 +20,35 @@
 ## 📦 Instalación Rápida
 
 1. **Crea tu proyecto en Firebase:**
-   - Ve a [console.firebase.google.com](https://console.firebase.google.com)
-   - Nuevo proyecto → "ChatNica"
-   - Activa: **Authentication** (Anónimo) + **Firestore Database**
-   - En Firestore Rules, usa para empezar:
-     ```
-     allow read, write: if true;
-     ```
+   - Ve a [Firebase Console](https://console.firebase.google.com) y pulsa en "Añadir proyecto".
+   - Asígnale el nombre "ChatNica" y sigue los pasos hasta crearlo.
 
-2. **Configura `firebase-config.js`:**
-   - Registra una "Web App" en Firebase
-   - Copia tus credenciales en el archivo
+2. **Configura Authentication (Anónimo):**
+   - En el menú lateral, ve a **Build (Compilación) > Authentication**.
+   - Haz clic en "Comenzar" y luego en la pestaña **Sign-in method**.
+   - Busca y activa el proveedor **Anónimo**. Pulsa en "Guardar".
+
+3. **Configura Firestore Database:**
+   - En el menú lateral, ve a **Build (Compilación) > Firestore Database**.
+   - Haz clic en "Crear base de datos" y selecciona la ubicación más cercana.
+   - Selecciona "Modo de prueba" (o configura las reglas manualmente):
+     ```javascript
+     rules_version = '2';
+     service cloud.firestore {
+       match /databases/{database}/documents {
+         match /messages/{message} {
+           allow read, write: if request.auth != null;
+         }
+       }
+     }
+     ```
+   - Pulsa en "Publicar".
+
+4. **Registra tu Aplicación y obtén las credenciales:**
+   - En la página de "Información general del proyecto", pulsa el icono de **Web** (</>).
+   - Registra tu aplicación (ej: ChatNica Web).
+   - Copia el objeto `firebaseConfig` que verás en pantalla (apiKey, authDomain, projectId, etc.).
+   - Abre `firebase-config.js` en tu editor y pega esos valores dentro del objeto `const firebaseConfig`.
 
 3. **Despliega (gratis):**
    ```bash
