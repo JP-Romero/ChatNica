@@ -57,7 +57,7 @@
   </header>
 
   <!-- MAIN CONTENT -->
-  <main class="flex-1 max-w-4xl mx-auto w-full p-4">
+  <main class="flex-1 max-w-4xl mx-auto w-full p-4 flex flex-col overflow-hidden">
     
     <!-- 🔐 Pantalla de Login -->
     <section id="login-screen" class="hidden bg-ocean-deep rounded-2xl shadow-2xl p-8 max-w-md mx-auto mt-16 border border-ocean-bright/30">
@@ -81,8 +81,15 @@
     </section>
 
     <!-- 💬 Pantalla de Chat -->
-    <section id="chat-screen" class="hidden flex flex-col h-[calc(100vh-140px)]">
+    <section id="chat-screen" class="hidden flex flex-col flex-1 overflow-hidden">
       
+      <!-- Selector de Canales -->
+      <div id="channels-bar" class="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
+        <button data-channel="general" class="channel-btn active"># General</button>
+        <button data-channel="ayuda" class="channel-btn"># Ayuda</button>
+        <button data-channel="comunidad" class="channel-btn"># Comunidad</button>
+      </div>
+
       <!-- Lista de mensajes -->
       <div id="messages-container" class="flex-1 overflow-y-auto space-y-3 p-3 bg-ocean-deep rounded-2xl shadow-2xl mb-4 border border-ocean-bright/20">
         <div class="text-center text-ocean-light/30 py-12" id="empty-state">
@@ -92,10 +99,14 @@
       </div>
 
       <!-- Formulario para enviar mensaje -->
-      <form id="message-form" class="flex gap-2">
+      <form id="message-form" class="flex gap-2 items-center">
+        <label for="image-input" class="cursor-pointer bg-ocean-darkest border border-ocean-bright/30 hover:border-ocean-bright p-3 rounded-xl transition text-xl">
+          📷
+          <input type="file" id="image-input" class="hidden" accept="image/*">
+        </label>
         <input type="text" id="message-input" 
           class="flex-1 bg-ocean-darkest border border-ocean-bright/50 rounded-xl px-5 py-3 text-white placeholder-ocean-light/30 focus:outline-none focus:ring-2 focus:ring-ocean-bright focus:border-transparent transition"
-          placeholder="Escribe un mensaje..." autocomplete="off" required>
+          placeholder="Escribe un mensaje..." autocomplete="off">
         <button type="submit" 
           class="bg-gradient-to-r from-ocean-bright to-ocean-primary hover:from-ocean-primary hover:to-ocean-bright text-white px-6 py-3 rounded-xl font-semibold transition transform hover:scale-105 shadow-lg shadow-ocean-bright/30">
           ➤
