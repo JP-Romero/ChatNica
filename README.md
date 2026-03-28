@@ -75,6 +75,31 @@
 
 - **"Error al entrar"**: Asegúrate de haber activado el inicio de sesión **Anónimo** en la pestaña Authentication.
 - **No se envían los mensajes**: Revisa que las **Reglas de Firestore** permitan `read, write: if request.auth != null;`. Si dice `if false;`, nadie podrá escribir nada.
+- **Error 404 al configurar GitHub Actions (Service Account)**: Este error sucede porque la API de IAM no está activa en tu proyecto de Google Cloud.
+   1. Ve a la [Google Cloud Console](https://console.cloud.google.com/apis/library/iamcredentials.googleapis.com).
+   2. Asegúrate de tener seleccionado tu proyecto `chatnica-8648d`.
+   3. Haz clic en **HABILITAR**.
+   4. Vuelve a ejecutar `firebase init hosting:github` en tu terminal.
+- **"Didn't find a Hosting config"**: Este error ocurre porque Firebase no reconoce el archivo `firebase.json` o porque estás ejecutando el comando fuera de la carpeta del proyecto.
+   1. **IMPORTANTE**: Asegúrate de que tu terminal esté en la carpeta raíz del proyecto (donde está el archivo `index.html`) y NO en tu carpeta de usuario personal (C:\Users\juanp).
+   2. He creado los archivos `firebase.json` y `.firebaserc` por ti para que Firebase reconozca la configuración de inmediato. Solo tienes que volver a ejecutar `firebase init hosting:github`.
+
+## 📱 Cómo ver la App en tu Celular (Desarrollo)
+
+Si estás desarrollando en tu PC y quieres ver cómo queda en tu móvil, tienes estas opciones:
+
+### 1. **Red Local (WiFi)** — La más rápida:
+   - Asegúrate de que tu PC y tu móvil estén en la misma red WiFi.
+   - Abre la terminal en tu PC y escribe `ipconfig` (Windows) o `ifconfig` (Mac/Linux) para buscar tu **Dirección IPv4** (ej: `192.168.1.15`).
+   - Inicia un servidor local en tu PC (ej: con la extensión "Live Server" de VS Code o usando `python -m http.server 8000`).
+   - En el navegador de tu celular, escribe la IP de tu PC seguida del puerto (ej: `http://192.168.1.15:8000`).
+   - **Nota:** Como no es HTTPS, algunas funciones de PWA (como instalar la app) podrían estar limitadas.
+
+### 2. **Firebase Hosting** — Recomendado (Con HTTPS):
+   - Al desplegar en Firebase Hosting, obtendrás una URL real con certificado SSL (`https://tu-proyecto.web.app`), lo que permitirá instalar la PWA en tu móvil y probarla al 100%.
+
+### 3. **Ngrok (Túnel Temporal)**:
+   - Descarga [Ngrok](https://ngrok.com/), ejecútalo con `ngrok http 8000` y te dará una URL pública temporal que puedes abrir en cualquier celular del mundo.
 
 ## 🚀 Despliegue (Gratis)
    ```bash
