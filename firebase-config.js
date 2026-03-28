@@ -28,6 +28,7 @@ import {
   query, 
   orderBy, 
   where,
+  limitToLast,
   onSnapshot,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
@@ -63,4 +64,4 @@ const auth = getAuth(app);
 const storage = getStorage(app);
 
 // 🔹 EXPORTAR PARA USAR EN app.js
-export { db, auth, storage, ref, uploadBytes, getDownloadURL, collection, addDoc, query, orderBy, where, onSnapshot, serverTimestamp, signInAnonymously, onAuthStateChanged };
+export { db, auth, storage, ref, uploadBytes, getDownloadURL, collection, addDoc, query, orderBy, where, limitToLast, onSnapshot, serverTimestamp, signInAnonymously, onAuthStateChanged };

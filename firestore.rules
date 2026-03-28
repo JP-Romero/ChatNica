@@ -1,0 +1,19 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /messages/{message} {
+      // Allow read access to anyone authenticated
+      allow read: if request.auth != null;
+
+      // Allow creating messages for authenticated users
+      // Limit text length to 1000 characters for basic anti-spam
+      allow create: if request.auth != null
+                    && (request.resource.data.text == null || request.resource.data.text.size() < 1000)
+                    && request.resource.data.uid == request.auth.uid;
+
+      // No one can edit or delete messages to keep history integrity
+      allow update, delete: if false;
+    }
+  }
+}

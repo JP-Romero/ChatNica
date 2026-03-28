@@ -107,9 +107,10 @@
         <input type="text" id="message-input" 
           class="flex-1 bg-ocean-darkest border border-ocean-bright/50 rounded-xl px-5 py-3 text-white placeholder-ocean-light/30 focus:outline-none focus:ring-2 focus:ring-ocean-bright focus:border-transparent transition"
           placeholder="Escribe un mensaje..." autocomplete="off">
-        <button type="submit" 
+        <button type="submit" id="btn-send"
           class="bg-gradient-to-r from-ocean-bright to-ocean-primary hover:from-ocean-primary hover:to-ocean-bright text-white px-6 py-3 rounded-xl font-semibold transition transform hover:scale-105 shadow-lg shadow-ocean-bright/30">
-          ➤
+          <span id="send-icon">➤</span>
+          <span id="send-loading" class="hidden animate-spin inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full"></span>
         </button>
       </form>
 
