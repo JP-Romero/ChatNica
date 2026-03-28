@@ -9,6 +9,7 @@ ESTILOS PERSONALIZADOS — ChatNica PWA
 /* Burbujas de mensaje */
 .message-bubble {
   @apply max-w-[80%] px-4 py-2.5 rounded-2xl shadow-md;
+  overflow-wrap: break-word;
 }
 
 .message-bubble.own {
@@ -143,4 +144,33 @@ body {
 /* Box-sizing universal */
 * {
   box-sizing: border-box;
+}
+
+/* Imágenes en burbujas de mensaje */
+.message-bubble img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+button {
+  cursor: pointer;
+}
+
+input {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+main {
+  flex-grow: 1;
+}
+
+html, body, #app {
+  height: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
 }
