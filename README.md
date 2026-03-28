@@ -101,6 +101,21 @@ Si estás desarrollando en tu PC y quieres ver cómo queda en tu móvil, tienes 
 ### 3. **Ngrok (Túnel Temporal)**:
    - Descarga [Ngrok](https://ngrok.com/), ejecútalo con `ngrok http 8000` y te dará una URL pública temporal que puedes abrir en cualquier celular del mundo.
 
+## 🔄 Sincronización (Flujo de Trabajo)
+
+Como tu código está en **GitHub**, puedes trabajar desde cualquier PC (o desde tu USB) y mantener tu página web siempre actualizada siguiendo estos pasos en tu terminal:
+
+1. **Guardar tus cambios localmente:**
+   ```bash
+   git add .
+   git commit -m "Descripción de tu mejora (ej: añadidos avatares)"
+   ```
+2. **Subir a la nube (GitHub):**
+   ```bash
+   git push origin main
+   ```
+3. **¡Listo!** GitHub actualizará automáticamente tu página en `https://jp-romero.github.io/ChatNica/` en un par de minutos. Así, tu web estará disponible **24/7** aunque tu PC esté apagada.
+
 ## 🚀 Despliegue (Gratis)
    ```bash
    # Opción A: Firebase Hosting
