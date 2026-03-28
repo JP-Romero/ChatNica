@@ -13,6 +13,7 @@ ESTILOS PERSONALIZADOS — ChatNica PWA
 
 .message-bubble.own {
   @apply bg-gradient-to-r from-[#0047AB] to-[#0066FF] text-white ml-auto rounded-br-none;
+  box-shadow: 0 4px 15px -3px rgba(0, 102, 255, 0.4);
 }
 
 .message-bubble.other {

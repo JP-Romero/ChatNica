@@ -38,8 +38,7 @@
   <!-- Estilos personalizados -->
   <link rel="stylesheet" href="styles.css">
   
-  <!-- Firebase -->
-  <script type="module" src="firebase-config.js"></script>
+  <!-- Firebase & App Logic -->
   <script type="module" src="app.js"></script>
 </head>
 <body class="bg-ocean-darkest min-h-screen flex flex-col text-ocean-light">
@@ -61,7 +60,7 @@
   <main class="flex-1 max-w-4xl mx-auto w-full p-4">
     
     <!-- 🔐 Pantalla de Login -->
-    <section id="login-screen" class="bg-ocean-deep rounded-2xl shadow-2xl p-8 max-w-md mx-auto mt-16 border border-ocean-bright/30">
+    <section id="login-screen" class="hidden bg-ocean-deep rounded-2xl shadow-2xl p-8 max-w-md mx-auto mt-16 border border-ocean-bright/30">
       <h2 class="text-2xl font-bold text-white mb-2 text-center">Bienvenido a ChatNica</h2>
       <p class="text-ocean-light/60 text-sm text-center mb-6">Conéctate sin depender de internet</p>
       <form id="login-form" class="space-y-5">
