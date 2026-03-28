@@ -50,7 +50,12 @@
    - Copia el objeto `firebaseConfig` que verás en pantalla (apiKey, authDomain, projectId, etc.).
    - Abre `firebase-config.js` en tu editor y pega esos valores dentro del objeto `const firebaseConfig`.
 
-3. **Despliega (gratis):**
+## 🛠️ Solución de Problemas
+
+- **"Error al entrar"**: Asegúrate de haber activado el inicio de sesión **Anónimo** en la pestaña Authentication.
+- **No se envían los mensajes**: Revisa que las **Reglas de Firestore** permitan `read, write: if request.auth != null;`. Si dice `if false;`, nadie podrá escribir nada.
+
+## 🚀 Despliegue (Gratis)
    ```bash
    # Opción A: Firebase Hosting
    npm install -g firebase-tools
