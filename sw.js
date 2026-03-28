@@ -14,13 +14,14 @@ const CACHE_VERSION = 'v1';
 const CACHE_NAME = `chatnica-shell-${CACHE_VERSION}`;
 
 const SHELL_ASSETS = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './firebase-config.js',
-  './manifest.json',
-  './offline.html'
+  'index.html',
+  'styles.css',
+  'app.js',
+  'firebase-config.js',
+  'manifest.json',
+  'offline.html',
+  'icons/icon-192.png',
+  'icons/icon-512.png'
 ];
 
 // ─────────────────────────────────────────────
