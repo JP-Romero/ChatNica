@@ -33,12 +33,13 @@ import {
 // 🔹 PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE
 // Obtén estos datos en: https://console.firebase.google.com > Tu Proyecto > Icono Web (</>)
 const firebaseConfig = {
-  apiKey: "TU_API_KEY_AQUI",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROJECT_ID",
-  storageBucket: "TU_PROYECTO.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId: "TU_APP_ID"
+  apiKey: "AIzaSyAgQzLJU_bx5iUtiKOkkb7POeXIK3VpGu0",
+  authDomain: "chatnica-8648d.firebaseapp.com",
+  projectId: "chatnica-8648d",
+  storageBucket: "chatnica-8648d.firebasestorage.app",
+  messagingSenderId: "9515659791",
+  appId: "1:9515659791:web:60cd2400fdff67b53a297a",
+  measurementId: "G-WENPBJD47J"
 };
 
 // 🔹 INICIALIZAR FIREBASE
