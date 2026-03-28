@@ -14,14 +14,15 @@ CONFIGURACIÓN DE FIREBASE — ChatNica
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import { 
-  getFirestore, 
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   collection, 
   addDoc, 
   query, 
   orderBy, 
   onSnapshot,
-  serverTimestamp,
-  enableIndexedDbPersistence
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 import { 
   getAuth, 
@@ -41,17 +42,15 @@ const firebaseConfig = {
 
 // 🔹 INICIALIZAR FIREBASE
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
 
-// Habilitar persistencia offline
-enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code == 'failed-precondition') {
-        console.warn('La persistencia falló: múltiples pestañas abiertas');
-    } else if (err.code == 'unimplemented') {
-        console.warn('El navegador no soporta persistencia');
-    }
+// Inicializar Firestore con soporte multi-pestaña y persistencia moderna
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
 });
+
+const auth = getAuth(app);
 
 // 🔹 EXPORTAR PARA USAR EN app.js
 export { db, auth, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, signInAnonymously, onAuthStateChanged };

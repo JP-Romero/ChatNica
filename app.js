@@ -69,7 +69,8 @@ loginForm.addEventListener('submit', async (e) => {
     console.error("Error al entrar (Firebase):", error);
 
     // Mensaje amigable para el desarrollador si no ha configurado sus credenciales
-    if (error.message && error.message.includes('API_KEY_INVALID')) {
+    const errorMsg = error.message || "";
+    if (errorMsg.includes('API_KEY_INVALID') || errorMsg.includes('api-key-not-valid')) {
         alert("¡Casi listo! Por favor, configura tus credenciales reales de Firebase en 'firebase-config.js' para que el chat funcione.");
     } else {
         alert("Hubo un error al intentar entrar. " + (error.code || error.message));
