@@ -1,0 +1,121 @@
+/**
+═══════════════════════════════════════════════════════════════
+ESTILOS PERSONALIZADOS — ChatNica PWA
+═══════════════════════════════════════════════════════════════
+🎨 Paleta Azul Noche Profunda: Azules oscuros + Azules eléctricos
+═══════════════════════════════════════════════════════════════
+*/
+
+/* Burbujas de mensaje */
+.message-bubble {
+  @apply max-w-[80%] px-4 py-2.5 rounded-2xl shadow-md;
+}
+
+.message-bubble.own {
+  @apply bg-gradient-to-r from-[#0047AB] to-[#0066FF] text-white ml-auto rounded-br-none;
+}
+
+.message-bubble.other {
+  @apply bg-[#001845] text-[#E6F0FF] mr-auto rounded-bl-none border border-[#0047AB]/40;
+}
+
+/* Animación suave al aparecer mensajes */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.message-bubble {
+  animation: slideIn 0.25s ease-out;
+}
+
+/* Indicador de "escribiendo..." */
+.typing-indicator {
+  @apply flex items-center gap-1 text-[#E6F0FF]/50 text-sm;
+}
+
+.typing-indicator span {
+  @apply w-2 h-2 bg-[#0066FF] rounded-full animate-bounce;
+}
+
+.typing-indicator span:nth-child(2) { animation-delay: 0.1s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.2s; }
+
+/* Scroll personalizado */
+#messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+#messages-container::-webkit-scrollbar-track {
+  @apply bg-[#000814] rounded;
+}
+
+#messages-container::-webkit-scrollbar-thumb {
+  @apply bg-[#0047AB]/60 rounded;
+}
+
+#messages-container::-webkit-scrollbar-thumb:hover {
+  @apply bg-[#0066FF];
+}
+
+/* Estado de conexión */
+#connection-status.online { 
+  @apply text-[#4ADE80]; 
+}
+
+#connection-status.offline { 
+  @apply text-[#F87171]; 
+}
+
+/* Transiciones suaves */
+button, input {
+  transition: all 0.25s ease;
+}
+
+/* Accesibilidad: foco visible */
+input:focus, button:focus {
+  @apply ring-2 ring-[#0066FF] ring-offset-2 ring-offset-[#000814] outline-none;
+}
+
+/* Gradiente animado para el header */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+header {
+  background-size: 200% 200%;
+  animation: gradientShift 20s ease infinite;
+}
+
+/* Efecto glow en elementos importantes */
+.glow {
+  box-shadow: 0 0 25px rgba(0, 102, 255, 0.5);
+}
+
+/* Tarjetas con borde brillante */
+.card-glow {
+  @apply border border-[#0047AB]/40 shadow-2xl shadow-[#0066FF]/20;
+}
+
+/* Efecto de pulso para estado en línea */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(0, 102, 255, 0.4); }
+  50% { box-shadow: 0 0 20px rgba(0, 102, 255, 0.7); }
+}
+
+.status-dot {
+  @apply w-2 h-2 rounded-full bg-[#4ADE80];
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Fondo con gradiente sutil */
+body {
+  background: linear-gradient(180deg, #000814 0%, #001030 50%, #000814 100%);
+}
+
+/* Efecto de vidrio para contenedores */
+.glass-panel {
+  @apply bg-[#001845]/80 backdrop-blur-sm border border-[#0047AB]/30;
+}

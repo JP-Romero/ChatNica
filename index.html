@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>💬 ChatNica - Mensajería Local</title>
+  <meta name="description" content="App de mensajería para Nicaragua - funciona con o sin internet">
+  <meta name="theme-color" content="#001845">
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Configurar colores personalizados - Azul Profundo Noche -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ocean: {
+              darkest: '#000814',
+              dark: '#001845',
+              primary: '#0047AB',
+              bright: '#0066FF',
+              deep: '#002366',
+              light: '#E6F0FF',
+              bubble: '#003380'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Estilos personalizados -->
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- Firebase -->
+  <script type="module" src="firebase-config.js"></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body class="bg-ocean-darkest min-h-screen flex flex-col text-ocean-light">
+
+  <!-- HEADER -->
+  <header class="bg-gradient-to-r from-ocean-dark via-ocean-primary to-ocean-dark p-4 shadow-2xl sticky top-0 z-50 border-b border-ocean-bright/20">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <h1 class="text-xl font-bold text-white tracking-wide">💬 ChatNica</h1>
+      <div class="flex items-center gap-3">
+        <span id="connection-status" class="text-sm text-white font-medium">🟢 En línea</span>
+        <button id="btn-logout" class="text-sm bg-ocean-darkest hover:bg-ocean-primary px-3 py-1.5 rounded border border-ocean-bright/40 transition hidden">
+          Salir
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="flex-1 max-w-4xl mx-auto w-full p-4">
+    
+    <!-- 🔐 Pantalla de Login -->
+    <section id="login-screen" class="bg-ocean-deep rounded-2xl shadow-2xl p-8 max-w-md mx-auto mt-16 border border-ocean-bright/30">
+      <h2 class="text-2xl font-bold text-white mb-2 text-center">Bienvenido a ChatNica</h2>
+      <p class="text-ocean-light/60 text-sm text-center mb-6">Conéctate sin depender de internet</p>
+      <form id="login-form" class="space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-ocean-light mb-2">Tu nombre</label>
+          <input type="text" id="username-input" required 
+            class="block w-full rounded-xl bg-ocean-darkest border border-ocean-bright/50 text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ocean-bright focus:border-transparent placeholder-ocean-light/30 transition"
+            placeholder="Ej: María López">
+        </div>
+        <button type="submit" 
+          class="w-full bg-gradient-to-r from-ocean-bright to-ocean-primary hover:from-ocean-primary hover:to-ocean-bright text-white font-semibold py-3 px-4 rounded-xl transition transform hover:scale-105 shadow-lg shadow-ocean-bright/30">
+          Entrar al Chat
+        </button>
+      </form>
+      <p class="text-xs text-ocean-light/40 mt-6 text-center flex items-center justify-center gap-2">
+        <span>🔒</span> Tus mensajes se guardan localmente si no hay internet
+      </p>
+    </section>
+
+    <!-- 💬 Pantalla de Chat -->
+    <section id="chat-screen" class="hidden flex flex-col h-[calc(100vh-140px)]">
+      
+      <!-- Lista de mensajes -->
+      <div id="messages-container" class="flex-1 overflow-y-auto space-y-3 p-3 bg-ocean-deep rounded-2xl shadow-2xl mb-4 border border-ocean-bright/20">
+        <div class="text-center text-ocean-light/30 py-12" id="empty-state">
+          <p class="text-4xl mb-2">👋</p>
+          <p>¡Escribe tu primer mensaje!</p>
+        </div>
+      </div>
+
+      <!-- Formulario para enviar mensaje -->
+      <form id="message-form" class="flex gap-2">
+        <input type="text" id="message-input" 
+          class="flex-1 bg-ocean-darkest border border-ocean-bright/50 rounded-xl px-5 py-3 text-white placeholder-ocean-light/30 focus:outline-none focus:ring-2 focus:ring-ocean-bright focus:border-transparent transition"
+          placeholder="Escribe un mensaje..." autocomplete="off" required>
+        <button type="submit" 
+          class="bg-gradient-to-r from-ocean-bright to-ocean-primary hover:from-ocean-primary hover:to-ocean-bright text-white px-6 py-3 rounded-xl font-semibold transition transform hover:scale-105 shadow-lg shadow-ocean-bright/30">
+          ➤
+        </button>
+      </form>
+
+      <!-- Indicador de mensajes pendientes (offline) -->
+      <div id="pending-indicator" class="hidden mt-3 text-xs text-ocean-light bg-ocean-primary/20 px-4 py-2 rounded-xl border border-ocean-bright/30 flex items-center gap-2">
+        <span>📤</span> <span id="pending-count">0</span> mensaje(s) esperando conexión...
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-ocean-darkest border-t border-ocean-bright/20 text-ocean-light/50 text-center py-4 text-sm">
+    <p>🇳🇮 ChatNica — Hecho con ❤️ para Nicaragua</p>
+    <p class="text-xs mt-1">Funciona con o sin internet</p>
+  </footer>
+
+  <!-- Registro del Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('✅ SW registrado:', reg.scope))
+          .catch(err => console.log('❌ Error SW:', err));
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>📴 Sin Conexión — ChatNica</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ocean: {
+              darkest: '#000814',
+              dark: '#001845',
+              primary: '#0047AB',
+              bright: '#0066FF',
+              deep: '#002366',
+              light: '#E6F0FF'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-ocean-darkest min-h-screen flex items-center justify-center p-4">
+  
+  <div class="bg-ocean-deep rounded-2xl shadow-2xl p-8 max-w-md text-center border border-ocean-bright/30">
+    <div class="text-6xl mb-4">📴</div>
+    <h1 class="text-2xl font-bold text-white mb-2">Sin Conexión</h1>
+    <p class="text-ocean-light/70 mb-6">
+      No hay internet en este momento, pero no te preocupes:
+    </p>
+    
+    <ul class="text-left text-sm text-ocean-light/80 space-y-3 mb-8 bg-ocean-darkest/50 rounded-xl p-4 border border-ocean-bright/20">
+      <li class="flex items-center gap-2">
+        <span class="text-green-400">✅</span>
+        Tus mensajes se guardan automáticamente
+      </li>
+      <li class="flex items-center gap-2">
+        <span class="text-green-400">✅</span>
+        Podrás seguir escribiendo sin problemas
+      </li>
+      <li class="flex items-center gap-2">
+        <span class="text-green-400">✅</span>
+        Se enviarán solos cuando regreses en línea
+      </li>
+    </ul>
+    
+    <button onclick="window.location.reload()" 
+      class="w-full bg-gradient-to-r from-ocean-bright to-ocean-primary hover:from-ocean-primary hover:to-ocean-bright text-white font-semibold py-3 px-6 rounded-xl transition transform hover:scale-105 shadow-lg shadow-ocean-bright/30">
+      🔄 Reintentar
+    </button>
+    
+    <p class="text-xs text-ocean-light/40 mt-6">
+      🇳🇮 ChatNica — Hecho para Nicaragua
+    </p>
+  </div>
+
+</body>
+</html>
