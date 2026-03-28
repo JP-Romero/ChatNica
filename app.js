@@ -9,6 +9,8 @@ import {
   addDoc, 
   query, 
   orderBy, 
+  where,
+  limitToLast,
   onSnapshot, 
   serverTimestamp, 
   signInAnonymously, 
@@ -25,6 +27,9 @@ const usernameInput = document.getElementById('username-input');
 const messageForm = document.getElementById('message-form');
 const messageInput = document.getElementById('message-input');
 const imageInput = document.getElementById('image-input');
+const btnSend = document.getElementById('btn-send');
+const sendIcon = document.getElementById('send-icon');
+const sendLoading = document.getElementById('send-loading');
 const messagesContainer = document.getElementById('messages-container');
 const emptyState = document.getElementById('empty-state');
 const btnLogout = document.getElementById('btn-logout');
@@ -150,6 +155,11 @@ messageForm.addEventListener('submit', async (e) => {
   if ((!text && !file) || !name || !auth.currentUser) return;
 
   try {
+    // UI Loading state
+    btnSend.disabled = true;
+    sendIcon.classList.add('hidden');
+    sendLoading.classList.remove('hidden');
+
     let imageUrl = null;
 
     // Si hay archivo, subirlo primero
@@ -174,6 +184,11 @@ messageForm.addEventListener('submit', async (e) => {
   } catch (error) {
     console.error("Error al enviar mensaje:", error);
     alert("Error al enviar: " + error.message);
+  } finally {
+    // Restore UI
+    btnSend.disabled = false;
+    sendIcon.classList.remove('hidden');
+    sendLoading.classList.add('hidden');
   }
 });
 
@@ -182,7 +197,8 @@ function loadMessages() {
   const q = query(
     collection(db, "messages"), 
     where("channel", "==", currentChannel),
-    orderBy("timestamp", "asc")
+    orderBy("timestamp", "asc"),
+    limitToLast(50)
   );
   
   unsubscribeMessages = onSnapshot(q, (snapshot) => {
@@ -234,6 +250,23 @@ function renderMessage(msg) {
   const color = getUserColor(msg.uid);
   const initials = msg.user ? msg.user.charAt(0).toUpperCase() : '?';
 
+  // 🛡️ Prevenir XSS escapando el texto
+  const escapeHTML = (str) => {
+    if (!str) return "";
+    return str.replace(/[&<>"']/g, function(m) {
+      return {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      }[m];
+    });
+  };
+
+  const safeUser = escapeHTML(msg.user);
+  const safeText = escapeHTML(msg.text);
+
   const avatarHTML = isOwn ? '' : `
     <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg" style="background-color: ${color}">
       ${initials}
@@ -242,6 +275,7 @@ function renderMessage(msg) {
 
   const imageHTML = msg.image ? `
     <img src="${msg.image}" class="rounded-lg mb-2 max-h-60 w-full object-cover cursor-pointer hover:opacity-90 transition" 
+      alt="Imagen compartida"
       onclick="window.open('${msg.image}', '_blank')">
   ` : '';
 
@@ -249,10 +283,10 @@ function renderMessage(msg) {
     ${avatarHTML}
     <div class="message-bubble ${isOwn ? 'own' : 'other'}" style="${!isOwn ? `border-left: 4px solid ${color}` : ''}">
       <div class="text-[10px] opacity-60 mb-1 font-bold flex justify-between gap-4">
-        <span>${isOwn ? 'Tú' : msg.user}</span>
+        <span>${isOwn ? 'Tú' : safeUser}</span>
       </div>
       ${imageHTML}
-      ${msg.text ? `<div class="text-sm md:text-base break-words">${msg.text}</div>` : ''}
+      ${safeText ? `<div class="text-sm md:text-base break-words">${safeText}</div>` : ''}
       <div class="text-[9px] opacity-40 text-right mt-1">${time}</div>
     </div>
   `;
