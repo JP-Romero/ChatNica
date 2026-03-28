@@ -24,7 +24,7 @@ ESTILOS PERSONALIZADOS — ChatNica PWA
 /* Animación suave al aparecer mensajes */
 @keyframes slideIn {
   from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .message-bubble {
@@ -44,9 +44,7 @@ ESTILOS PERSONALIZADOS — ChatNica PWA
 .typing-indicator span:nth-child(3) { animation-delay: 0.2s; }
 
 /* Scroll personalizado */
-#messages-container::-webkit-scrollbar {
-  width: 6px;
-}
+#messages-container::-webkit-scrollbar { width: 6px; }
 
 #messages-container::-webkit-scrollbar-track {
   @apply bg-[#000814] rounded;
@@ -61,31 +59,45 @@ ESTILOS PERSONALIZADOS — ChatNica PWA
 }
 
 /* Estado de conexión */
-#connection-status.online { 
-  @apply text-[#4ADE80]; 
-}
-
-#connection-status.offline { 
-  @apply text-[#F87171]; 
-}
+#connection-status.online  { @apply text-[#4ADE80]; }
+#connection-status.offline { @apply text-[#F87171]; }
 
 /* Transiciones suaves */
-button, input {
+button, input { transition: all 0.25s ease; }
+
+/* ─────────────────────────────────────────────
+   Canales
+   FIX: Los colores personalizados (ocean-*) definidos en el <script> de
+   Tailwind dentro del HTML no son accesibles desde un archivo CSS externo
+   via @apply. Se reemplazan con sus valores hexadecimales directos.
+──────────────────────────────────────────────── */
+.channel-btn {
+  padding: 0.375rem 1rem;           /* py-1.5 px-4 */
+  border-radius: 9999px;            /* rounded-full */
+  font-size: 0.875rem;              /* text-sm */
+  font-weight: 500;                 /* font-medium */
+  white-space: nowrap;              /* whitespace-nowrap */
+  border: 1px solid rgba(0, 102, 255, 0.2);   /* border-ocean-bright/20 */
+  background-color: rgba(0, 24, 69, 0.4);     /* bg-ocean-dark/40 */
+  color: #E6F0FF;
+  cursor: pointer;
   transition: all 0.25s ease;
 }
 
-/* Canales */
-.channel-btn {
-  @apply px-4 py-1.5 rounded-full text-sm font-medium border border-ocean-bright/20 bg-ocean-dark/40 whitespace-nowrap;
-}
-
 .channel-btn.active {
-  @apply bg-ocean-bright text-white border-transparent shadow-lg shadow-ocean-bright/30;
+  background-color: #0066FF;        /* bg-ocean-bright */
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 10px 15px -3px rgba(0, 102, 255, 0.3),
+              0 4px 6px -4px rgba(0, 102, 255, 0.3); /* shadow-ocean-bright/30 */
 }
 
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
+.channel-btn:hover:not(.active) {
+  border-color: rgba(0, 102, 255, 0.5);
+  background-color: rgba(0, 24, 69, 0.7);
 }
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
 
 /* Accesibilidad: foco visible */
 input:focus, button:focus {
@@ -94,9 +106,9 @@ input:focus, button:focus {
 
 /* Gradiente animado para el header */
 @keyframes gradientShift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0%   { background-position: 0%   50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0%   50%; }
 }
 
 header {
@@ -122,7 +134,7 @@ header {
 /* Efecto de pulso para estado en línea */
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 10px rgba(0, 102, 255, 0.4); }
-  50% { box-shadow: 0 0 20px rgba(0, 102, 255, 0.7); }
+  50%       { box-shadow: 0 0 20px rgba(0, 102, 255, 0.7); }
 }
 
 .status-dot {
@@ -133,7 +145,8 @@ header {
 /* Fondo con gradiente sutil */
 body {
   background: linear-gradient(180deg, #000814 0%, #001030 50%, #000814 100%);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+               Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
 }
 
 /* Efecto de vidrio para contenedores */
@@ -142,9 +155,7 @@ body {
 }
 
 /* Box-sizing universal */
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 /* Imágenes en burbujas de mensaje */
 .message-bubble img {
@@ -154,9 +165,7 @@ body {
   margin-top: 0.5rem;
 }
 
-button {
-  cursor: pointer;
-}
+button { cursor: pointer; }
 
 input {
   -webkit-appearance: none;
@@ -164,9 +173,7 @@ input {
   appearance: none;
 }
 
-main {
-  flex-grow: 1;
-}
+main { flex-grow: 1; }
 
 html, body, #app {
   height: 100%;
@@ -174,3 +181,53 @@ html, body, #app {
   display: flex;
   flex-direction: column;
 }
+
+/* Vista previa de archivo seleccionado */
+#file-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #E6F0FF;
+  background-color: rgba(0, 71, 171, 0.2);
+  border: 1px solid rgba(0, 102, 255, 0.3);
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  margin-top: 0.5rem;
+}
+
+#file-preview.hidden { display: none; }
+
+#file-preview-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#file-clear-btn {
+  background: none;
+  border: none;
+  color: #F87171;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0;
+  line-height: 1;
+  transition: opacity 0.2s;
+}
+
+#file-clear-btn:hover { opacity: 0.7; }
+
+/* Pantalla de carga inicial */
+#loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 4rem 2rem;
+  color: #E6F0FF;
+  opacity: 0.6;
+}
+
+#loading-screen.hidden { display: none; }

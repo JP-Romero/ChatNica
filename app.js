@@ -20,35 +20,49 @@ import {
 // ─────────────────────────────────────────────
 //  DOM ELEMENTS
 // ─────────────────────────────────────────────
-const loginScreen = document.getElementById('login-screen');
-const chatScreen = document.getElementById('chat-screen');
-const loginForm = document.getElementById('login-form');
-const usernameInput = document.getElementById('username-input');
-const messageForm = document.getElementById('message-form');
-const messageInput = document.getElementById('message-input');
-const imageInput = document.getElementById('image-input');
-const btnSend = document.getElementById('btn-send');
-const sendIcon = document.getElementById('send-icon');
-const sendLoading = document.getElementById('send-loading');
+const loginScreen      = document.getElementById('login-screen');
+const chatScreen       = document.getElementById('chat-screen');
+const loginForm        = document.getElementById('login-form');
+const usernameInput    = document.getElementById('username-input');
+const messageForm      = document.getElementById('message-form');
+const messageInput     = document.getElementById('message-input');
+const imageInput       = document.getElementById('image-input');
+const btnSend          = document.getElementById('btn-send');
+const sendIcon         = document.getElementById('send-icon');
+const sendLoading      = document.getElementById('send-loading');
 const messagesContainer = document.getElementById('messages-container');
-const emptyState = document.getElementById('empty-state');
-const btnLogout = document.getElementById('btn-logout');
+const emptyState       = document.getElementById('empty-state');
+const btnLogout        = document.getElementById('btn-logout');
 const connectionStatus = document.getElementById('connection-status');
 const pendingIndicator = document.getElementById('pending-indicator');
-const pendingCount = document.getElementById('pending-count');
-const channelsBar = document.getElementById('channels-bar');
+const pendingCount     = document.getElementById('pending-count');
+const channelsBar      = document.getElementById('channels-bar');
+const filePreview      = document.getElementById('file-preview');      // nuevo elemento
+const filePreviewName  = document.getElementById('file-preview-name'); // nuevo elemento
+const fileClearBtn     = document.getElementById('file-clear-btn');    // nuevo elemento
 
-let currentUser = null;
+let currentUser        = null;
 let unsubscribeMessages = null;
-let isTabActive = true;
-let unreadCount = 0;
-let currentChannel = 'general';
+let isTabActive        = true;
+let unreadCount        = 0;
+let currentChannel     = 'general';
+
+// ─────────────────────────────────────────────
+//  UTILIDADES
+// ─────────────────────────────────────────────
+
+/** Escapa caracteres peligrosos para prevenir XSS */
+function escapeHTML(str) {
+  if (!str) return '';
+  return str.replace(/[&<>"']/g, m => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  }[m]));
+}
 
 // ─────────────────────────────────────────────
 //  AUTH LOGIC
 // ─────────────────────────────────────────────
 
-// Verificar estado de autenticación
 onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUser = user;
@@ -64,7 +78,6 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// Manejar Login
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const name = usernameInput.value.trim();
@@ -73,26 +86,22 @@ loginForm.addEventListener('submit', async (e) => {
   try {
     localStorage.setItem('chatnica_name', name);
     if (!auth.currentUser) {
-      // Si la configuración es la de ejemplo, Firebase lanzará un error
       await signInAnonymously(auth);
+      // onAuthStateChanged llamará showChat cuando el login se complete
     } else {
-        // Si ya hay usuario pero faltaba el nombre, solo mostrar chat
-        showChat(name);
+      showChat(name);
     }
   } catch (error) {
-    console.error("Error al entrar (Firebase):", error);
-    
-    // Mensaje amigable para el desarrollador si no ha configurado sus credenciales
-    const errorMsg = error.message || "";
+    console.error('Error al entrar (Firebase):', error);
+    const errorMsg = error.message || '';
     if (errorMsg.includes('API_KEY_INVALID') || errorMsg.includes('api-key-not-valid')) {
-        alert("¡Casi listo! Por favor, configura tus credenciales reales de Firebase en 'firebase-config.js' para que el chat funcione.");
+      alert("¡Casi listo! Por favor, configura tus credenciales reales de Firebase en 'firebase-config.js'.");
     } else {
-        alert("Hubo un error al intentar entrar. " + (error.code || error.message));
+      alert('Hubo un error al intentar entrar. ' + (error.code || error.message));
     }
   }
 });
 
-// Manejar Logout
 btnLogout.addEventListener('click', async () => {
   localStorage.removeItem('chatnica_name');
   if (unsubscribeMessages) {
@@ -100,14 +109,17 @@ btnLogout.addEventListener('click', async () => {
     unsubscribeMessages = null;
   }
   await auth.signOut();
-  // Al cambiar el estado de auth, onAuthStateChanged llamará a showLogin()
 });
 
 function showLogin() {
   loginScreen.classList.remove('hidden');
   chatScreen.classList.add('hidden');
   btnLogout.classList.add('hidden');
-  
+  // Limpiar estado del formulario al salir
+  messageInput.value = '';
+  imageInput.value = '';
+  hideFilePreview();
+
   if (unsubscribeMessages) {
     unsubscribeMessages();
     unsubscribeMessages = null;
@@ -118,34 +130,85 @@ function showChat(name) {
   loginScreen.classList.add('hidden');
   chatScreen.classList.remove('hidden');
   btnLogout.classList.remove('hidden');
-  
-  // Evitar duplicar el escuchador
+
   if (!unsubscribeMessages) {
     loadMessages();
   }
 }
 
 // ─────────────────────────────────────────────
+//  SELECCIÓN DE IMAGEN — feedback visual
+// ─────────────────────────────────────────────
+
+const MAX_FILE_SIZE_MB = 5;
+const ALLOWED_TYPES    = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+imageInput.addEventListener('change', () => {
+  const file = imageInput.files[0];
+  if (!file) { hideFilePreview(); return; }
+
+  // Validar tipo
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    alert('Solo se permiten imágenes (JPEG, PNG, GIF, WebP).');
+    imageInput.value = '';
+    hideFilePreview();
+    return;
+  }
+
+  // Validar tamaño (< 5 MB)
+  if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+    alert(`La imagen es demasiado grande. El tamaño máximo es ${MAX_FILE_SIZE_MB} MB.`);
+    imageInput.value = '';
+    hideFilePreview();
+    return;
+  }
+
+  // Mostrar nombre del archivo seleccionado
+  showFilePreview(file.name);
+});
+
+// Botón para limpiar archivo seleccionado
+if (fileClearBtn) {
+  fileClearBtn.addEventListener('click', () => {
+    imageInput.value = '';
+    hideFilePreview();
+  });
+}
+
+function showFilePreview(fileName) {
+  if (!filePreview || !filePreviewName) return;
+  filePreviewName.textContent = fileName;
+  filePreview.classList.remove('hidden');
+}
+
+function hideFilePreview() {
+  if (!filePreview) return;
+  filePreview.classList.add('hidden');
+  if (filePreviewName) filePreviewName.textContent = '';
+}
+
+// ─────────────────────────────────────────────
 //  MESSAGES LOGIC
 // ─────────────────────────────────────────────
 
-// Manejar cambio de canal
 channelsBar.addEventListener('click', (e) => {
   const btn = e.target.closest('button');
   if (!btn || btn.dataset.channel === currentChannel) return;
 
   currentChannel = btn.dataset.channel;
-  
-  // UI update
+
   document.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 
-  // Recargar mensajes
+  // Limpiar input al cambiar de canal
+  messageInput.value = '';
+  imageInput.value = '';
+  hideFilePreview();
+
   if (unsubscribeMessages) unsubscribeMessages();
   loadMessages();
 });
 
-// Enviar Mensaje
 messageForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const text = messageInput.value.trim();
@@ -154,15 +217,25 @@ messageForm.addEventListener('submit', async (e) => {
 
   if ((!text && !file) || !name || !auth.currentUser) return;
 
+  // Doble validación de archivo (por si acaso)
+  if (file) {
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      alert('Tipo de archivo no permitido.');
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      alert(`La imagen supera el límite de ${MAX_FILE_SIZE_MB} MB.`);
+      return;
+    }
+  }
+
   try {
-    // UI Loading state
     btnSend.disabled = true;
     sendIcon.classList.add('hidden');
     sendLoading.classList.remove('hidden');
 
     let imageUrl = null;
 
-    // Si hay archivo, subirlo primero
     if (file) {
       const fileRef = ref(storage, `chats/${currentChannel}/${Date.now()}_${file.name}`);
       const uploadResult = await uploadBytes(fileRef, file);
@@ -171,9 +244,10 @@ messageForm.addEventListener('submit', async (e) => {
 
     const messageContent = text;
     messageInput.value = '';
-    imageInput.value = ''; // Limpiar selector de archivo
-    
-    await addDoc(collection(db, "messages"), {
+    imageInput.value = '';
+    hideFilePreview();
+
+    await addDoc(collection(db, 'messages'), {
       text: messageContent,
       image: imageUrl,
       user: name,
@@ -182,29 +256,28 @@ messageForm.addEventListener('submit', async (e) => {
       timestamp: serverTimestamp()
     });
   } catch (error) {
-    console.error("Error al enviar mensaje:", error);
-    alert("Error al enviar: " + error.message);
+    console.error('Error al enviar mensaje:', error);
+    alert('Error al enviar: ' + error.message);
   } finally {
-    // Restore UI
     btnSend.disabled = false;
     sendIcon.classList.remove('hidden');
     sendLoading.classList.add('hidden');
   }
 });
 
-// Cargar Mensajes en tiempo real
 function loadMessages() {
   const q = query(
-    collection(db, "messages"), 
-    where("channel", "==", currentChannel),
-    orderBy("timestamp", "asc"),
+    collection(db, 'messages'),
+    where('channel', '==', currentChannel),
+    orderBy('timestamp', 'asc'),
     limitToLast(50)
   );
-  
+
   unsubscribeMessages = onSnapshot(q, (snapshot) => {
-    // Si hay cambios locales que aún no se suben
     const pending = snapshot.metadata.hasPendingWrites;
-    updatePendingIndicator(pending, snapshot.docChanges().length);
+    // FIX: actualizar el contador real de mensajes pendientes
+    const pendingDocs = snapshot.docs.filter(d => d.metadata.hasPendingWrites).length;
+    updatePendingIndicator(pending, pendingDocs);
 
     if (snapshot.empty) {
       emptyState.classList.remove('hidden');
@@ -223,16 +296,17 @@ function loadMessages() {
 
     scrollToBottom();
   }, (error) => {
-    console.error("Error al cargar mensajes:", error);
+    console.error('Error al cargar mensajes:', error);
     if (error.code === 'permission-denied') {
-        console.warn("Permiso denegado. Es posible que las reglas de Firestore deban actualizarse.");
+      console.warn('Permiso denegado. Revisa las reglas de Firestore.');
     }
   });
 }
 
 function getUserColor(uid) {
   const colors = [
-    '#60A5FA', '#F87171', '#34D399', '#FBBF24', '#A78BFA', '#F472B6', '#2DD4BF', '#FB923C'
+    '#60A5FA', '#F87171', '#34D399', '#FBBF24',
+    '#A78BFA', '#F472B6', '#2DD4BF', '#FB923C'
   ];
   let hash = 0;
   for (let i = 0; i < uid.length; i++) {
@@ -243,62 +317,59 @@ function getUserColor(uid) {
 
 function renderMessage(msg) {
   const isOwn = msg.uid === auth.currentUser.uid;
-  const div = document.createElement('div');
+  const div   = document.createElement('div');
   div.className = `flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4 items-end gap-2`;
 
-  const time = msg.timestamp ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...';
-  const color = getUserColor(msg.uid);
+  const time     = msg.timestamp
+    ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : '...';
+  const color    = getUserColor(msg.uid);
   const initials = msg.user ? msg.user.charAt(0).toUpperCase() : '?';
-
-  // 🛡️ Prevenir XSS escapando el texto
-  const escapeHTML = (str) => {
-    if (!str) return "";
-    return str.replace(/[&<>"']/g, function(m) {
-      return {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-      }[m];
-    });
-  };
-
   const safeUser = escapeHTML(msg.user);
   const safeText = escapeHTML(msg.text);
+  // FIX: escapar también la URL de la imagen para evitar XSS
+  const safeImage = escapeHTML(msg.image);
 
   const avatarHTML = isOwn ? '' : `
-    <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg" style="background-color: ${color}">
+    <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg"
+         style="background-color: ${color}">
       ${initials}
-    </div>
-  `;
+    </div>`;
 
-  const imageHTML = msg.image ? `
-    <img src="${msg.image}" class="rounded-lg mb-2 max-h-60 w-full object-cover cursor-pointer hover:opacity-90 transition" 
-      alt="Imagen compartida"
-      onclick="window.open('${msg.image}', '_blank')">
-  ` : '';
+  // FIX: usar data-src en lugar de onclick inline con URL sin escapar
+  const imageHTML = safeImage ? `
+    <img src="${safeImage}"
+         class="rounded-lg mb-2 max-h-60 w-full object-cover cursor-pointer hover:opacity-90 transition"
+         alt="Imagen compartida"
+         data-fullurl="${safeImage}">` : '';
 
   div.innerHTML = `
     ${avatarHTML}
-    <div class="message-bubble ${isOwn ? 'own' : 'other'}" style="${!isOwn ? `border-left: 4px solid ${color}` : ''}">
+    <div class="message-bubble ${isOwn ? 'own' : 'other'}"
+         style="${!isOwn ? `border-left: 4px solid ${color}` : ''}">
       <div class="text-[10px] opacity-60 mb-1 font-bold flex justify-between gap-4">
         <span>${isOwn ? 'Tú' : safeUser}</span>
       </div>
       ${imageHTML}
       ${safeText ? `<div class="text-sm md:text-base break-words">${safeText}</div>` : ''}
       <div class="text-[9px] opacity-40 text-right mt-1">${time}</div>
-    </div>
-  `;
+    </div>`;
 
   messagesContainer.appendChild(div);
-  
-  // Notificaciones visuales si la pestaña no está activa
+
   if (!isTabActive && !isOwn) {
     unreadCount++;
     document.title = `(${unreadCount}) 💬 ChatNica`;
   }
 }
+
+// FIX: delegated listener para abrir imágenes — seguro, sin onclick inline
+messagesContainer.addEventListener('click', (e) => {
+  const img = e.target.closest('img[data-fullurl]');
+  if (img && img.dataset.fullurl) {
+    window.open(img.dataset.fullurl, '_blank', 'noopener,noreferrer');
+  }
+});
 
 // ─────────────────────────────────────────────
 //  NOTIFICATIONS & TAB STATE
@@ -307,7 +378,7 @@ function renderMessage(msg) {
 window.addEventListener('focus', () => {
   isTabActive = true;
   unreadCount = 0;
-  document.title = "💬 ChatNica - Mensajería Local";
+  document.title = '💬 ChatNica - Mensajería Local';
 });
 
 window.addEventListener('blur', () => {
@@ -324,24 +395,24 @@ function scrollToBottom() {
 
 function updateStatus() {
   if (navigator.onLine) {
-    connectionStatus.textContent = "🟢 En línea";
-    connectionStatus.className = "text-sm text-green-400 font-medium";
+    connectionStatus.textContent = '🟢 En línea';
+    connectionStatus.className   = 'text-sm text-green-400 font-medium';
   } else {
-    connectionStatus.textContent = "🔴 Sin conexión";
-    connectionStatus.className = "text-sm text-red-400 font-medium";
+    connectionStatus.textContent = '🔴 Sin conexión';
+    connectionStatus.className   = 'text-sm text-red-400 font-medium';
   }
 }
 
+// FIX: actualizar el texto del contador de mensajes pendientes
 function updatePendingIndicator(isPending, count) {
   if (isPending) {
     pendingIndicator.classList.remove('hidden');
-    // Nota: El count aquí es de cambios en el snapshot, no necesariamente mensajes pendientes
-    // pero sirve como feedback visual.
+    pendingCount.textContent = count > 0 ? count : '...';
   } else {
     pendingIndicator.classList.add('hidden');
   }
 }
 
-window.addEventListener('online', updateStatus);
+window.addEventListener('online',  updateStatus);
 window.addEventListener('offline', updateStatus);
 updateStatus();

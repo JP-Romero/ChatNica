@@ -6,14 +6,14 @@
   <title>💬 ChatNica - Mensajería Local</title>
   <meta name="description" content="App de mensajería para Nicaragua - funciona con o sin internet">
   <meta name="theme-color" content="#001845">
-  
+
   <!-- PWA Manifest -->
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
+
   <!-- Configurar colores personalizados - Azul Profundo Noche -->
   <script>
     tailwind.config = {
@@ -22,22 +22,22 @@
           colors: {
             ocean: {
               darkest: '#000814',
-              dark: '#001845',
+              dark:    '#001845',
               primary: '#0047AB',
-              bright: '#0066FF',
-              deep: '#002366',
-              light: '#E6F0FF',
-              bubble: '#003380'
+              bright:  '#0066FF',
+              deep:    '#002366',
+              light:   '#E6F0FF',
+              bubble:  '#003380'
             }
           }
         }
       }
     }
   </script>
-  
+
   <!-- Estilos personalizados -->
   <link rel="stylesheet" href="styles.css">
-  
+
   <!-- Firebase & App Logic -->
   <script type="module" src="app.js"></script>
 </head>
@@ -49,7 +49,8 @@
       <h1 class="text-xl font-bold text-white tracking-wide">💬 ChatNica</h1>
       <div class="flex items-center gap-3">
         <span id="connection-status" class="text-sm text-white font-medium">🟢 En línea</span>
-        <button id="btn-logout" class="text-sm bg-ocean-darkest hover:bg-ocean-primary px-3 py-1.5 rounded border border-ocean-bright/40 transition hidden">
+        <button id="btn-logout"
+          class="text-sm bg-ocean-darkest hover:bg-ocean-primary px-3 py-1.5 rounded border border-ocean-bright/40 transition hidden">
           Salir
         </button>
       </div>
@@ -58,20 +59,32 @@
 
   <!-- MAIN CONTENT -->
   <main class="flex-1 max-w-4xl mx-auto w-full p-4 flex flex-col overflow-hidden">
-    
+
+    <!-- ⏳ Pantalla de carga inicial (mientras Firebase verifica auth)
+         FIX: Evita la pantalla en blanco durante la verificación del estado de autenticación -->
+    <div id="loading-screen" class="flex flex-col items-center justify-center gap-4 mt-20 text-ocean-light/50">
+      <div class="w-8 h-8 border-2 border-ocean-bright/30 border-t-ocean-bright rounded-full animate-spin"></div>
+      <p class="text-sm">Conectando…</p>
+    </div>
+
     <!-- 🔐 Pantalla de Login -->
-    <section id="login-screen" class="hidden bg-ocean-deep rounded-2xl shadow-2xl p-8 max-w-md mx-auto mt-16 border border-ocean-bright/30">
+    <section id="login-screen"
+      class="hidden bg-ocean-deep rounded-2xl shadow-2xl p-8 max-w-md mx-auto mt-16 border border-ocean-bright/30">
       <h2 class="text-2xl font-bold text-white mb-2 text-center">Bienvenido a ChatNica</h2>
       <p class="text-ocean-light/60 text-sm text-center mb-6">Conéctate sin depender de internet</p>
       <form id="login-form" class="space-y-5">
         <div>
           <label class="block text-sm font-medium text-ocean-light mb-2">Tu nombre</label>
-          <input type="text" id="username-input" required 
-            class="block w-full rounded-xl bg-ocean-darkest border border-ocean-bright/50 text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ocean-bright focus:border-transparent placeholder-ocean-light/30 transition"
+          <input type="text" id="username-input" required
+            class="block w-full rounded-xl bg-ocean-darkest border border-ocean-bright/50 text-white px-4 py-3
+                   focus:outline-none focus:ring-2 focus:ring-ocean-bright focus:border-transparent
+                   placeholder-ocean-light/30 transition"
             placeholder="Ej: María López">
         </div>
-        <button type="submit" 
-          class="w-full bg-gradient-to-r from-ocean-bright to-ocean-primary hover:from-ocean-primary hover:to-ocean-bright text-white font-semibold py-3 px-4 rounded-xl transition transform hover:scale-105 shadow-lg shadow-ocean-bright/30">
+        <button type="submit"
+          class="w-full bg-gradient-to-r from-ocean-bright to-ocean-primary hover:from-ocean-primary hover:to-ocean-bright
+                 text-white font-semibold py-3 px-4 rounded-xl transition transform hover:scale-105
+                 shadow-lg shadow-ocean-bright/30">
           Entrar al Chat
         </button>
       </form>
@@ -82,16 +95,17 @@
 
     <!-- 💬 Pantalla de Chat -->
     <section id="chat-screen" class="hidden flex flex-col flex-1 overflow-hidden">
-      
+
       <!-- Selector de Canales -->
       <div id="channels-bar" class="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
-        <button data-channel="general" class="channel-btn active"># General</button>
-        <button data-channel="ayuda" class="channel-btn"># Ayuda</button>
+        <button data-channel="general"   class="channel-btn active"># General</button>
+        <button data-channel="ayuda"     class="channel-btn"># Ayuda</button>
         <button data-channel="comunidad" class="channel-btn"># Comunidad</button>
       </div>
 
       <!-- Lista de mensajes -->
-      <div id="messages-container" class="flex-1 overflow-y-auto space-y-3 p-3 bg-ocean-deep rounded-2xl shadow-2xl mb-4 border border-ocean-bright/20">
+      <div id="messages-container"
+        class="flex-1 overflow-y-auto space-y-3 p-3 bg-ocean-deep rounded-2xl shadow-2xl mb-4 border border-ocean-bright/20">
         <div class="text-center text-ocean-light/30 py-12" id="empty-state">
           <p class="text-4xl mb-2">👋</p>
           <p>¡Escribe tu primer mensaje!</p>
@@ -100,23 +114,42 @@
 
       <!-- Formulario para enviar mensaje -->
       <form id="message-form" class="flex gap-2 items-center">
-        <label for="image-input" class="cursor-pointer bg-ocean-darkest border border-ocean-bright/30 hover:border-ocean-bright p-3 rounded-xl transition text-xl">
+        <label for="image-input"
+          class="cursor-pointer bg-ocean-darkest border border-ocean-bright/30 hover:border-ocean-bright p-3 rounded-xl transition text-xl"
+          title="Adjuntar imagen">
           📷
-          <input type="file" id="image-input" class="hidden" accept="image/*">
+          <!-- FIX: accept más estricto, coincide con validación JS -->
+          <input type="file" id="image-input" class="hidden" accept="image/jpeg,image/png,image/gif,image/webp">
         </label>
-        <input type="text" id="message-input" 
-          class="flex-1 bg-ocean-darkest border border-ocean-bright/50 rounded-xl px-5 py-3 text-white placeholder-ocean-light/30 focus:outline-none focus:ring-2 focus:ring-ocean-bright focus:border-transparent transition"
-          placeholder="Escribe un mensaje..." autocomplete="off">
+        <input type="text" id="message-input"
+          class="flex-1 bg-ocean-darkest border border-ocean-bright/50 rounded-xl px-5 py-3 text-white
+                 placeholder-ocean-light/30 focus:outline-none focus:ring-2 focus:ring-ocean-bright
+                 focus:border-transparent transition"
+          placeholder="Escribe un mensaje…" autocomplete="off">
         <button type="submit" id="btn-send"
-          class="bg-gradient-to-r from-ocean-bright to-ocean-primary hover:from-ocean-primary hover:to-ocean-bright text-white px-6 py-3 rounded-xl font-semibold transition transform hover:scale-105 shadow-lg shadow-ocean-bright/30">
+          class="bg-gradient-to-r from-ocean-bright to-ocean-primary hover:from-ocean-primary hover:to-ocean-bright
+                 text-white px-6 py-3 rounded-xl font-semibold transition transform hover:scale-105
+                 shadow-lg shadow-ocean-bright/30">
           <span id="send-icon">➤</span>
-          <span id="send-loading" class="hidden animate-spin inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full"></span>
+          <span id="send-loading"
+            class="hidden animate-spin inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full"></span>
         </button>
       </form>
 
+      <!-- FIX: Vista previa del archivo seleccionado (nuevo elemento requerido por app.js) -->
+      <div id="file-preview" class="hidden">
+        <span>📎</span>
+        <span id="file-preview-name"></span>
+        <button id="file-clear-btn" title="Quitar imagen">✕</button>
+      </div>
+
       <!-- Indicador de mensajes pendientes (offline) -->
-      <div id="pending-indicator" class="hidden mt-3 text-xs text-ocean-light bg-ocean-primary/20 px-4 py-2 rounded-xl border border-ocean-bright/30 flex items-center gap-2">
-        <span>📤</span> <span id="pending-count">0</span> mensaje(s) esperando conexión...
+      <div id="pending-indicator"
+        class="hidden mt-3 text-xs text-ocean-light bg-ocean-primary/20 px-4 py-2 rounded-xl
+               border border-ocean-bright/30 flex items-center gap-2">
+        <span>📤</span>
+        <!-- FIX: pendingCount ahora se actualiza correctamente desde app.js -->
+        <span id="pending-count">0</span> mensaje(s) esperando conexión…
       </div>
     </section>
 
@@ -133,10 +166,26 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
-          .then(reg => console.log('✅ SW registrado:', reg.scope))
+          .then(reg  => console.log('✅ SW registrado:', reg.scope))
           .catch(err => console.log('❌ Error SW:', err));
       });
     }
+
+    // FIX: ocultar pantalla de carga en cuanto Firebase determine el estado de auth.
+    // El módulo app.js llama a showLogin() o showChat() que ocultan/muestran las
+    // secciones correspondientes; aquí nos aseguramos de ocultar el loading screen.
+    // Usamos un MutationObserver para detectar cuando alguna sección se hace visible.
+    const loadingScreen = document.getElementById('loading-screen');
+    const observer = new MutationObserver(() => {
+      const loginVisible = !document.getElementById('login-screen').classList.contains('hidden');
+      const chatVisible  = !document.getElementById('chat-screen').classList.contains('hidden');
+      if (loginVisible || chatVisible) {
+        loadingScreen.classList.add('hidden');
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.getElementById('login-screen'), { attributes: true, attributeFilter: ['class'] });
+    observer.observe(document.getElementById('chat-screen'),  { attributes: true, attributeFilter: ['class'] });
   </script>
 </body>
 </html>
