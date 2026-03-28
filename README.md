@@ -76,6 +76,23 @@
 - **"Error al entrar"**: Asegúrate de haber activado el inicio de sesión **Anónimo** en la pestaña Authentication.
 - **No se envían los mensajes**: Revisa que las **Reglas de Firestore** permitan `read, write: if request.auth != null;`. Si dice `if false;`, nadie podrá escribir nada.
 
+## 📱 Cómo ver la App en tu Celular (Desarrollo)
+
+Si estás desarrollando en tu PC y quieres ver cómo queda en tu móvil, tienes estas opciones:
+
+### 1. **Red Local (WiFi)** — La más rápida:
+   - Asegúrate de que tu PC y tu móvil estén en la misma red WiFi.
+   - Abre la terminal en tu PC y escribe `ipconfig` (Windows) o `ifconfig` (Mac/Linux) para buscar tu **Dirección IPv4** (ej: `192.168.1.15`).
+   - Inicia un servidor local en tu PC (ej: con la extensión "Live Server" de VS Code o usando `python -m http.server 8000`).
+   - En el navegador de tu celular, escribe la IP de tu PC seguida del puerto (ej: `http://192.168.1.15:8000`).
+   - **Nota:** Como no es HTTPS, algunas funciones de PWA (como instalar la app) podrían estar limitadas.
+
+### 2. **Firebase Hosting** — Recomendado (Con HTTPS):
+   - Al desplegar en Firebase Hosting, obtendrás una URL real con certificado SSL (`https://tu-proyecto.web.app`), lo que permitirá instalar la PWA en tu móvil y probarla al 100%.
+
+### 3. **Ngrok (Túnel Temporal)**:
+   - Descarga [Ngrok](https://ngrok.com/), ejecútalo con `ngrok http 8000` y te dará una URL pública temporal que puedes abrir en cualquier celular del mundo.
+
 ## 🚀 Despliegue (Gratis)
    ```bash
    # Opción A: Firebase Hosting
