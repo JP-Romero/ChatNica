@@ -80,6 +80,9 @@
    2. Asegúrate de tener seleccionado tu proyecto `chatnica-8648d`.
    3. Haz clic en **HABILITAR**.
    4. Vuelve a ejecutar `firebase init hosting:github` en tu terminal.
+- **"Didn't find a Hosting config"**: Este error ocurre porque Firebase no reconoce el archivo `firebase.json` o porque estás ejecutando el comando fuera de la carpeta del proyecto.
+   1. **IMPORTANTE**: Asegúrate de que tu terminal esté en la carpeta raíz del proyecto (donde está el archivo `index.html`) y NO en tu carpeta de usuario personal (C:\Users\juanp).
+   2. He creado los archivos `firebase.json` y `.firebaserc` por ti para que Firebase reconozca la configuración de inmediato. Solo tienes que volver a ejecutar `firebase init hosting:github`.
 
 ## 📱 Cómo ver la App en tu Celular (Desarrollo)
 
