@@ -20,7 +20,8 @@ import {
   query, 
   orderBy, 
   onSnapshot,
-  serverTimestamp 
+  serverTimestamp,
+  enableIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 import { 
   getAuth, 
@@ -42,6 +43,15 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+
+// Habilitar persistencia offline
+enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code == 'failed-precondition') {
+        console.warn('La persistencia falló: múltiples pestañas abiertas');
+    } else if (err.code == 'unimplemented') {
+        console.warn('El navegador no soporta persistencia');
+    }
+});
 
 // 🔹 EXPORTAR PARA USAR EN app.js
 export { db, auth, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, signInAnonymously, onAuthStateChanged };
