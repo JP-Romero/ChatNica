@@ -2,18 +2,47 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /messages/{message} {
-      // Allow read access to anyone authenticated
-      allow read: if request.auth != null;
-      
-      // Allow creating messages for authenticated users
-      // Limit text length to 1000 characters for basic anti-spam
-      allow create: if request.auth != null 
-                    && (request.resource.data.text == null || request.resource.data.text.size() < 1000)
-                    && request.resource.data.uid == request.auth.uid;
-      
-      // No one can edit or delete messages to keep history integrity
-      allow update, delete: if false;
+
+    function isAuth()      { return request.auth != null; }
+    function isOwner(uid)  { return request.auth.uid == uid; }
+    function onlyReactions() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']);
+    }
+
+    // ── Mensajes ────────────────────────────────────────────
+    match /messages/{msgId} {
+      allow read: if isAuth();
+
+      allow create: if isAuth()
+        && request.resource.data.uid == request.auth.uid
+        && (request.resource.data.text == null
+            || request.resource.data.text.size() <= 2000);
+
+      // Solo se permite modificar el campo "reactions"
+      allow update: if isAuth() && onlyReactions();
+
+      allow delete: if false;
+    }
+
+    // ── Perfiles de usuario ──────────────────────────────────
+    match /users/{uid} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && isOwner(uid);
+      allow update: if isAuth() && isOwner(uid);
+      allow delete: if false;
+    }
+
+    // ── Presencia ────────────────────────────────────────────
+    match /presence/{uid} {
+      allow read:  if isAuth();
+      allow write: if isAuth() && isOwner(uid);
+    }
+
+    // ── Indicadores de escritura ─────────────────────────────
+    match /typing/{channel} {
+      allow read:  if isAuth();
+      // Cualquier usuario autenticado puede actualizar su propio campo
+      allow write: if isAuth();
     }
   }
 }

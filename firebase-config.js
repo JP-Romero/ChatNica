@@ -2,58 +2,60 @@
 ═══════════════════════════════════════════════════════════════
 CONFIGURACIÓN DE FIREBASE — ChatNica
 ═══════════════════════════════════════════════════════════════
-📌 INSTRUCCIONES:
-1. Ve a https://console.firebase.google.com
-2. Crea un nuevo proyecto "ChatNica"
-3. Activa: Authentication + Firestore Database
-4. Registra una "Web App" y copia tus credenciales abajo
-5. En Firestore Rules, usa modo prueba para empezar:
-   allow read, write: if true;
+PARA ACTIVAR TODAS LAS FUNCIONES en Firebase Console:
+  1. Authentication → Sign-in method → habilitar: Google + Email/Password
+  2. Firestore Database → crear (modo producción)
+  3. Storage → crear (modo producción)
+  4. Project Settings → Cloud Messaging → generar clave VAPID
+     → pegar en VAPID_KEY abajo
 ═══════════════════════════════════════════════════════════════
 */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { 
-  getStorage, 
-  ref, 
-  uploadBytes, 
-  getDownloadURL 
+import {
+  getStorage, ref, uploadBytes, getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js";
-import { 
+import {
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
-  collection, 
-  addDoc, 
-  query, 
-  orderBy, 
-  where,
-  limitToLast,
-  onSnapshot,
-  serverTimestamp
+  collection, addDoc, query, orderBy, where,
+  limitToLast, onSnapshot, serverTimestamp,
+  doc, setDoc, getDoc, updateDoc, deleteField,
+  getDocs, limit, endBefore, arrayUnion, arrayRemove,
+  Timestamp
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
-import { 
-  getAuth, 
-  signInAnonymously, 
-  onAuthStateChanged 
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInAnonymously,
+  signOut,
+  onAuthStateChanged,
+  updateProfile
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+import {
+  getMessaging, getToken, onMessage
+} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging.js";
 
-// 🔹 PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE
-// Obtén estos datos en: https://console.firebase.google.com > Tu Proyecto > Icono Web (</>)
+// 🔑 Reemplaza con tu clave VAPID desde Firebase Console → Project Settings → Cloud Messaging
+export const VAPID_KEY = 'YOUR_VAPID_KEY_HERE';
+
+// ─── Tu configuración de Firebase ───────────────────────────
 const firebaseConfig = {
   apiKey: "AIzaSyAgQzLJU_bx5iUtiKOkkb7POeXIK3VpGu0",
   authDomain: "chatnica-8648d.firebaseapp.com",
   projectId: "chatnica-8648d",
   storageBucket: "chatnica-8648d.firebasestorage.app",
   messagingSenderId: "9515659791",
-  appId: "1:9515659791:web:60cd2400fdff67b53a297a",
-  measurementId: "G-WENPBJD47J"
+  appId: "1:9515659791:web:60cd2400fdff67b53a297a"
 };
 
-// 🔹 INICIALIZAR FIREBASE
+// ─── Inicializar ─────────────────────────────────────────────
 const app = initializeApp(firebaseConfig);
 
-// Inicializar Firestore con soporte multi-pestaña y persistencia moderna
 const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager()
@@ -62,6 +64,32 @@ const db = initializeFirestore(app, {
 
 const auth = getAuth(app);
 const storage = getStorage(app);
+const googleProvider = new GoogleAuthProvider();
 
-// 🔹 EXPORTAR PARA USAR EN app.js
-export { db, auth, storage, ref, uploadBytes, getDownloadURL, collection, addDoc, query, orderBy, where, limitToLast, onSnapshot, serverTimestamp, signInAnonymously, onAuthStateChanged };
+// FCM — opcional, puede no estar disponible en todos los navegadores
+let messaging = null;
+try {
+  if ('serviceWorker' in navigator && 'PushManager' in window) {
+    messaging = getMessaging(app);
+  }
+} catch (e) {
+  console.warn('[ChatNica] FCM no disponible:', e.message);
+}
+
+export {
+  db, auth, storage, messaging, googleProvider,
+  // Firestore
+  collection, addDoc, query, orderBy, where,
+  limitToLast, onSnapshot, serverTimestamp,
+  doc, setDoc, getDoc, updateDoc, deleteField,
+  getDocs, limit, endBefore, arrayUnion, arrayRemove,
+  Timestamp,
+  // Storage
+  ref, uploadBytes, getDownloadURL,
+  // Auth
+  signInWithPopup, createUserWithEmailAndPassword,
+  signInWithEmailAndPassword, signInAnonymously,
+  signOut, onAuthStateChanged, updateProfile,
+  // Messaging
+  getToken, onMessage
+};
