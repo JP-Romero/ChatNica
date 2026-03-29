@@ -4,6 +4,7 @@
   "description": "App de mensajería para Nicaragua",
   "scripts": {
     "preview": "firebase hosting:channel:deploy pruebas --expires 7d",
+    "clean-preview": "firebase hosting:channel:delete pruebas",
     "deploy": "firebase deploy"
   }
 }

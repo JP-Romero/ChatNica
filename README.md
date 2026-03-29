@@ -98,10 +98,8 @@
    `firebase use chatnica-8648d`
 
 - **Canales de Prueba (Sin usar IPs)**: Para probar en el celular con HTTPS sin configurar IPs:
-   1. **Crear canal**: `firebase hosting:channel:deploy pruebas --expires 7d`
    1. **Crear canal (Rápido)**: `npm run preview`
    2. **Ver canales activos**: `firebase hosting:channel:list`
-   3. **Eliminar canal**: `firebase hosting:channel:delete pruebas`
    3. **Eliminar canal (Rápido)**: `npm run clean-preview`
    4. **Importante**: Recuerda añadir la URL generada a "Dominios Autorizados" en la Consola de Firebase para que el login funcione.
 
