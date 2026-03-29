@@ -1,0 +1,9 @@
+{
+  "name": "chatnica",
+  "version": "1.0.0",
+  "description": "App de mensajería para Nicaragua",
+  "scripts": {
+    "preview": "firebase hosting:channel:deploy pruebas --expires 7d",
+    "deploy": "firebase deploy"
+  }
+}

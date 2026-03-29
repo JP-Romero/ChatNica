@@ -94,6 +94,17 @@
    1. **IMPORTANTE**: Asegúrate de que tu terminal esté en la carpeta raíz del proyecto (donde está el archivo `index.html`) y NO en tu carpeta de usuario personal (C:\Users\juanp).
    2. He creado los archivos `firebase.json` y `.firebaserc` por ti para que Firebase reconozca la configuración de inmediato. Solo tienes que volver a ejecutar `firebase init hosting:github`.
 
+- **Error: No currently active project**: Si el CLI no reconoce el proyecto, ejecuta:
+   `firebase use chatnica-8648d`
+
+- **Canales de Prueba (Sin usar IPs)**: Para probar en el celular con HTTPS sin configurar IPs:
+   1. **Crear canal**: `firebase hosting:channel:deploy pruebas --expires 7d`
+   1. **Crear canal (Rápido)**: `npm run preview`
+   2. **Ver canales activos**: `firebase hosting:channel:list`
+   3. **Eliminar canal**: `firebase hosting:channel:delete pruebas`
+   3. **Eliminar canal (Rápido)**: `npm run clean-preview`
+   4. **Importante**: Recuerda añadir la URL generada a "Dominios Autorizados" en la Consola de Firebase para que el login funcione.
+
 ## 📱 Cómo ver la App en tu Celular (Desarrollo)
 
 Si estás desarrollando en tu PC y quieres ver cómo queda en tu móvil, tienes estas opciones:

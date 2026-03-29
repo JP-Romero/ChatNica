@@ -175,13 +175,17 @@ onAuthStateChanged(auth, async user => {
     }
   } catch (e) {
     console.error("[ChatNica] Error crítico en inicio de sesión:", e);
-    
-    // Si el error es de permisos, es probable que sea en ensureProfile o startSession
-    const msg = e.code === 'permission-denied' 
-      ? 'Error de permisos en Firestore. Revisa las Reglas en la consola.' 
-      : 'Error al sincronizar perfil: ' + e.message;
+    let errorMsg = friendlyError(e);
 
-    showAuthError('login', msg);
+    if (e.code === 'permission-denied') {
+      errorMsg = 'Error de permisos en Firestore. Revisa las Reglas de la base de datos.';
+    } else if (e.code === 'auth/unauthorized-domain') {
+      errorMsg = '⚠️ Este dominio no está autorizado. Agrégalo en la Consola de Firebase > Auth > Settings.';
+    }
+
+    showAuthError('login', errorMsg);
+    if (D.loadingScreen) D.loadingScreen.innerHTML = `<p class="text-red-400 p-4 text-center">${errorMsg}</p>`;
+    setAuthBusy(false, 'google'); // Liberar botones si estaban bloqueados
     showScreen('auth'); // Forzar salida del estado de carga
   }
 });
@@ -237,6 +241,7 @@ const friendlyError = e => ({
   'auth/network-request-failed':'Sin conexión. Revisa tu red.',
   'auth/api-key-not-valid':     '⚠️ Configura tus credenciales de Firebase en firebase-config.js',
   'auth/operation-not-allowed': '⚠️ Debes habilitar este método de inicio de sesión en la Consola de Firebase.',
+  'auth/unauthorized-domain':   '⚠️ Este dominio no está autorizado en la Consola de Firebase (Authorized Domains).',
 }[e.code] || e.message || 'Error desconocido.');
 
 // ─────────────────────────────────────────────
