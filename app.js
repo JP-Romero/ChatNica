@@ -677,13 +677,13 @@ function buildMsgEl(msgDoc) {
 
   // Read Tick (Visto)
   const isRead = d.readBy && d.readBy.length > 1;
-  const tickHTML = isOwn ? `<span class="msg-tick ${isRead ? 'text-blue-400' : 'text-gray-500'}">✓✓</span>` : '';
+  const tickHTML = isOwn ? `<span class="msg-tick ${isRead ? 'text-blue-200' : 'text-white/50'} text-[10px] ml-1">✓✓</span>` : '';
 
   // Action buttons
   const actBtns = `
-    <div class="msg-actions ${isOwn ? 'order-first mr-1' : 'order-last ml-1'}">
-      <button class="msg-act-btn react-trigger" data-msg-id="${id}" title="Reaccionar">😊</button>
-      <button class="msg-act-btn reply-trigger"
+    <div class="msg-actions flex gap-1 ${isOwn ? 'order-first mr-1' : 'order-last ml-1'} opacity-0 group-hover:opacity-100 transition-opacity">
+      <button class="p-1 hover:bg-gray-200 rounded text-sm react-trigger" data-msg-id="${id}">😊</button>
+      <button class="p-1 hover:bg-gray-200 rounded text-sm reply-trigger"
         data-msg-id="${id}"
         data-msg-text="${esc(d.text || '')}"
         data-msg-user="${name}"
@@ -693,14 +693,14 @@ function buildMsgEl(msgDoc) {
 
   wrap.innerHTML = `
     ${avatarHTML}
-    <div class="msg-bubble ${isOwn ? 'own' : 'other'}" style="${!isOwn ? `--c:${color}` : ''}">
+    <div class="msg-bubble group ${isOwn ? 'own' : 'other'} relative" style="${!isOwn ? `--c:${color}` : ''}">
       ${replyHTML}
-      ${!isOwn ? `<div class="msg-name" style="color:${color}">${name}</div>` : ''}
+      ${!isOwn ? `<div class="msg-name text-[11px] font-bold mb-1" style="color:${color}">${name}</div>` : ''}
       ${imgHTML}
       ${audioHTML}
-      ${d.text ? `<div class="msg-text">${esc(d.text)}</div>` : ''}
-      <div class="msg-foot">
-        <span class="msg-time">${fmtTime(d.timestamp)}</span>
+      ${d.text ? `<div class="msg-text text-sm leading-relaxed">${esc(d.text)}</div>` : ''}
+      <div class="flex items-center justify-end mt-1">
+        <span class="text-[10px] opacity-70">${fmtTime(d.timestamp)}</span>
         ${tickHTML}
       </div>
       ${reactHTML}

@@ -20,13 +20,13 @@
       theme: {
         extend: {
           colors: {
-            ocean: {
-              darkest: '#000814',
-              dark:    '#001030',
-              mid:     '#001845',
-              primary: '#0047AB',
-              bright:  '#0066FF',
-              light:   '#E6F0FF',
+            nica: {
+              primary: '#0066FF', // Azul vibrante (visto en el icono)
+              secondary: '#00A3FF',
+              bg:      '#F0F4F9', // Fondo claro y moderno
+              surface: '#FFFFFF',
+              text:    '#1C1E21',
+              muted:   '#65676B',
             }
           }
         }
@@ -34,16 +34,45 @@
     }
   </script>
 
-  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Personalización del reproductor de audio */
+    .msg-audio {
+      height: 36px;
+      border-radius: 20px;
+      filter: sepia(20%) saturate(70%) hue-rotate(190deg) brightness(105%);
+      margin-top: 8px;
+      width: 220px;
+    }
+    .own .msg-audio {
+      filter: invert(100%) hue-rotate(180deg) brightness(1.2);
+    }
+    /* Estilos de burbujas mejorados */
+    .msg-bubble {
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      border-radius: 18px;
+      padding: 8px 12px;
+    }
+    .msg-bubble.own {
+      background: #0066FF !important;
+      color: white !important;
+      border-bottom-right-radius: 4px;
+    }
+    .msg-bubble.other {
+      background: white !important;
+      color: #1C1E21 !important;
+      border-bottom-left-radius: 4px;
+    }
+  </style>
+
   <script type="module" src="app.js"></script>
 </head>
 
-<body class="bg-ocean-darkest text-ocean-light" style="height:100dvh;display:flex;flex-direction:column;overflow:hidden">
+<body class="bg-nica-bg text-nica-text" style="height:100dvh;display:flex;flex-direction:column;overflow:hidden">
 
 <!-- ══════════════════════════════════════
   HEADER
 ══════════════════════════════════════ -->
-<header class="app-header flex-shrink-0">
+<header class="bg-nica-primary shadow-md flex-shrink-0 z-20">
   <div class="header-inner">
     <!-- Logo -->
     <div class="flex items-center gap-2">
@@ -51,8 +80,8 @@
     </div>
     <!-- Center: user info -->
     <div class="flex items-center gap-2 min-w-0">
-      <div id="header-avatar" class="header-avatar"></div>
-      <span id="header-name" class="text-sm font-medium text-ocean-light truncate max-w-[120px] hidden sm:block"></span>
+      <div id="header-avatar" class="header-avatar border-2 border-white/20"></div>
+      <span id="header-name" class="text-sm font-semibold text-white truncate max-w-[120px] hidden sm:block"></span>
       <span id="online-count" class="text-xs text-green-400 font-medium hidden"></span>
     </div>
     <!-- Right: status + logout -->
@@ -70,8 +99,8 @@
   LOADING SCREEN
 ══════════════════════════════════════ -->
 <div id="loading-screen" class="flex-1 flex flex-col items-center justify-center gap-4">
-  <div class="w-10 h-10 rounded-full border-2 border-ocean-bright/20 border-t-ocean-bright animate-spin"></div>
-  <p class="text-ocean-light/40 text-sm tracking-wide">Conectando…</p>
+  <div class="w-10 h-10 rounded-full border-2 border-nica-primary/20 border-t-nica-primary animate-spin"></div>
+  <p class="text-nica-muted text-sm tracking-wide font-medium">ChatNica conectando…</p>
 </div>
 
 <!-- ══════════════════════════════════════
@@ -82,8 +111,8 @@
 
     <div class="text-center mb-8">
       <div class="text-4xl mb-2">💬</div>
-      <h1 class="text-2xl font-black text-white tracking-tight">ChatNica</h1>
-      <p class="text-ocean-light/50 text-sm mt-1">Mensajería para Nicaragua</p>
+      <h1 class="text-2xl font-black text-nica-primary tracking-tight">ChatNica</h1>
+      <p class="text-nica-muted text-sm mt-1">Conectando comunidades</p>
     </div>
 
     <!-- ── LOGIN VIEW ─────────────────────── -->
@@ -113,7 +142,7 @@
 
       <div class="flex items-center justify-between mt-4">
         <button id="show-register" class="auth-link">Crear cuenta nueva</button>
-        <button id="btn-guest" class="auth-link text-ocean-light/40">Entrar como invitado</button>
+        <button id="btn-guest" class="auth-link text-nica-muted">Entrar como invitado</button>
       </div>
     </div>
 
@@ -144,7 +173,7 @@
 <section id="chat-screen" class="hidden flex-1 flex flex-col overflow-hidden">
 
   <!-- Channel bar -->
-  <div id="channels-bar" class="channels-bar flex-shrink-0">
+  <div id="channels-bar" class="bg-white border-b border-gray-200 flex overflow-x-auto p-2 gap-2 scrollbar-hide">
     <button data-channel="general"   class="channel-btn active"># General</button>
     <button data-channel="ayuda"     class="channel-btn"># Ayuda</button>
     <button data-channel="comunidad" class="channel-btn"># Comunidad</button>
@@ -153,13 +182,13 @@
   </div>
 
   <!-- Load more -->
-  <div class="flex-shrink-0 flex justify-center py-1.5 px-4">
+  <div class="flex-shrink-0 flex justify-center py-2 px-4 bg-transparent">
     <button id="load-more-btn" class="load-more-btn hidden">↑ Mensajes anteriores</button>
   </div>
 
   <!-- Messages -->
-  <div id="messages-container" class="flex-1 overflow-y-auto px-3 py-2 space-y-1" style="overscroll-behavior:contain">
-    <div id="empty-state" class="text-center text-ocean-light/30 py-16">
+  <div id="messages-container" class="flex-1 overflow-y-auto px-4 py-2 space-y-3" style="overscroll-behavior:contain">
+    <div id="empty-state" class="text-center text-nica-muted/40 py-16">
       <p class="text-5xl mb-3">👋</p>
       <p class="text-sm">¡Sé el primero en escribir aquí!</p>
     </div>
@@ -170,25 +199,25 @@
     <div class="typing-dots">
       <span></span><span></span><span></span>
     </div>
-    <span id="typing-text" class="text-xs text-ocean-light/40 italic"></span>
+    <span id="typing-text" class="text-xs text-nica-muted italic"></span>
   </div>
 
   <!-- Reply preview -->
-  <div id="reply-preview" class="hidden flex-shrink-0 reply-preview-bar">
+  <div id="reply-preview" class="hidden flex-shrink-0 bg-gray-100 border-l-4 border-nica-primary px-4 py-2">
     <div class="flex-1 min-w-0">
-      <span class="text-xs font-semibold text-ocean-bright">↩ </span>
-      <span id="reply-user" class="text-xs font-semibold text-ocean-bright"></span>
-      <p id="reply-text" class="text-xs text-ocean-light/60 truncate"></p>
+      <span class="text-xs font-semibold text-nica-primary">↩ </span>
+      <span id="reply-user" class="text-xs font-bold text-nica-primary"></span>
+      <p id="reply-text" class="text-xs text-nica-muted truncate"></p>
     </div>
-    <button id="cancel-reply" class="text-ocean-light/40 hover:text-white flex-shrink-0 text-lg leading-none ml-2">✕</button>
+    <button id="cancel-reply" class="text-nica-muted hover:text-red-500 flex-shrink-0 text-lg ml-2">✕</button>
   </div>
 
   <!-- Input area -->
-  <div class="flex-shrink-0 input-area">
+  <div class="flex-shrink-0 bg-white border-t border-gray-200 p-2 pb-safe">
     <form id="message-form" class="input-row">
       <!-- Image button -->
       <label for="image-input"
-        class="img-btn flex-shrink-0" title="Adjuntar imagen">
+        class="p-2 text-nica-muted hover:text-nica-primary transition-colors flex-shrink-0" title="Adjuntar imagen">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -197,19 +226,19 @@
       </label>
 
       <!-- Mic button -->
-      <button type="button" id="mic-btn" class="img-btn text-ocean-light/60 hover:text-red-400 transition-colors">
+      <button type="button" id="mic-btn" class="p-2 text-nica-muted hover:text-nica-primary transition-colors">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
         </svg>
       </button>
 
       <!-- Text input -->
-      <input type="text" id="message-input" placeholder="Escribe un mensaje…" autocomplete="off"
-        class="msg-text-input">
+      <input type="text" id="message-input" placeholder="Mensaje..." autocomplete="off"
+        class="flex-1 bg-gray-100 border-none rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-nica-primary transition-all">
 
       <!-- Send button -->
-      <button type="submit" id="btn-send" class="send-btn flex-shrink-0">
-        <svg id="send-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+      <button type="submit" id="btn-send" class="bg-nica-primary text-white p-2 rounded-full hover:bg-nica-secondary transition-all flex-shrink-0 shadow-sm ml-1">
+        <svg id="send-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 rotate-45" viewBox="0 0 24 24" fill="currentColor">
           <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
         </svg>
         <div id="send-loading" class="hidden w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
@@ -217,16 +246,16 @@
     </form>
 
     <!-- File preview -->
-    <div id="file-preview" class="hidden file-preview-row">
-      <svg class="w-4 h-4 flex-shrink-0 text-ocean-bright" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div id="file-preview" class="hidden flex items-center gap-2 bg-nica-bg p-2 rounded-lg mt-2">
+      <svg class="w-4 h-4 flex-shrink-0 text-nica-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
       </svg>
-      <span id="file-preview-name" class="text-xs text-ocean-light/70 truncate flex-1"></span>
+      <span id="file-preview-name" class="text-xs text-nica-muted truncate flex-1 font-medium"></span>
       <button id="file-clear-btn" class="text-red-400 hover:text-red-300 text-sm flex-shrink-0">✕</button>
     </div>
 
     <!-- Recording status -->
-    <div id="recording-bar" class="hidden absolute inset-0 bg-ocean-dark flex items-center justify-between px-4 z-10">
+    <div id="recording-bar" class="hidden absolute inset-0 bg-white flex items-center justify-between px-4 z-10 border-t border-gray-200">
       <div class="flex items-center gap-2">
         <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
         <span id="recording-timer" class="text-xs font-mono">00:00</span>
@@ -237,8 +266,8 @@
 
   <!-- Pending offline indicator -->
   <div id="pending-indicator"
-    class="hidden flex-shrink-0 flex items-center gap-2 text-xs text-ocean-light/60
-           bg-ocean-primary/20 border-t border-ocean-bright/20 px-4 py-2">
+    class="hidden flex-shrink-0 flex items-center gap-2 text-xs text-nica-primary
+           bg-nica-bg border-t border-gray-200 px-4 py-2">
     <span>📤</span>
     <span id="pending-count">0</span> mensaje(s) esperando conexión…
   </div>
