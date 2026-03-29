@@ -19,7 +19,7 @@ import {
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
-  collection, addDoc, query, orderBy, where,
+  collection, addDoc, deleteDoc, query, orderBy, where,
   limitToLast, onSnapshot, serverTimestamp,
   doc, setDoc, getDoc, updateDoc, deleteField,
   getDocs, limit, endBefore, arrayUnion, arrayRemove,
@@ -79,7 +79,7 @@ try {
 export {
   db, auth, storage, messaging, googleProvider,
   // Firestore
-  collection, addDoc, query, orderBy, where,
+  collection, addDoc, deleteDoc, query, orderBy, where,
   limitToLast, onSnapshot, serverTimestamp,
   doc, setDoc, getDoc, updateDoc, deleteField,
   getDocs, limit, endBefore, arrayUnion, arrayRemove,

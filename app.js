@@ -8,7 +8,7 @@
 
 import {
   db, auth, storage, messaging, googleProvider, VAPID_KEY,
-  collection, addDoc, query, orderBy, where, limitToLast,
+  collection, addDoc, deleteDoc, query, orderBy, where, limitToLast,
   onSnapshot, serverTimestamp, doc, setDoc, getDoc, updateDoc,
   deleteField, getDocs, endBefore, arrayUnion, arrayRemove, Timestamp,
   ref, uploadBytes, getDownloadURL,
@@ -49,6 +49,10 @@ const S = {
   hasMore:     false,
   presTimer:   null,
   typingTimer: null,
+  mediaRecorder: null,
+  audioChunks: [],
+  recInterval: null,
+  recSeconds: 0,
   msgEls:      new Map(),
 };
 
@@ -99,6 +103,10 @@ const D = {
   filePreview:    $('file-preview'),
   filePreviewName:$('file-preview-name'),
   fileClear:      $('file-clear-btn'),
+  micBtn:         $('mic-btn'),
+  recordingBar:   $('recording-bar'),
+  recordingTimer: $('recording-timer'),
+  stopRecBtn:     $('stop-rec-btn'),
   pendingRow:     $('pending-indicator'),
   pendingCount:   $('pending-count'),
   reactionPopover:$('reaction-popover'),
@@ -448,6 +456,15 @@ function loadMessages() {
         const el = buildMsgEl(change.doc);
         D.messages.appendChild(el);
         S.msgEls.set(change.doc.id, el);
+
+        // Lógica de "Visto": Si recibo un mensaje ajeno, marco que lo leí
+        const d = change.doc.data();
+        if (d.uid !== S.user.uid && (!d.readBy || !d.readBy.includes(S.user.uid))) {
+          updateDoc(doc(db, 'messages', change.doc.id), {
+            readBy: arrayUnion(S.user.uid)
+          }).catch(() => {});
+        }
+
         const isOwn = change.doc.data().uid === S.user.uid;
         if (!isOwn) markUnread(S.channel);
         if (!isOwn && !S.isTabActive) {
@@ -538,6 +555,7 @@ async function sendMessage() {
       channel:   S.channel,
       timestamp: serverTimestamp(),
       reactions: {},
+      readBy:    [S.user.uid],
       replyTo:   S.replyTo || null
     };
 
@@ -554,6 +572,65 @@ async function sendMessage() {
     D.sendIcon.classList.remove('hidden');
     D.sendLoading.classList.add('hidden');
   }
+}
+
+async function deleteMessage(id) {
+  if (!confirm('¿Seguro que quieres borrar este mensaje?')) return;
+  try {
+    await deleteDoc(doc(db, 'messages', id));
+    showToast('Mensaje eliminado');
+  } catch (e) {
+    alert('No se pudo borrar: ' + e.message);
+  }
+}
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    S.mediaRecorder = new MediaRecorder(stream);
+    S.audioChunks = [];
+    S.mediaRecorder.ondataavailable = e => S.audioChunks.push(e.data);
+    S.mediaRecorder.onstop = async () => {
+      const blob = new Blob(S.audioChunks, { type: 'audio/webm' });
+      const file = new File([blob], "voice_note.webm", { type: 'audio/webm' });
+      await uploadVoiceNote(file);
+      stream.getTracks().forEach(t => t.stop());
+    };
+    S.mediaRecorder.start();
+    S.recSeconds = 0;
+    D.recordingBar.classList.remove('hidden');
+    S.recInterval = setInterval(() => {
+      S.recSeconds++;
+      const m = Math.floor(S.recSeconds / 60).toString().padStart(2, '0');
+      const s = (S.recSeconds % 60).toString().padStart(2, '0');
+      D.recordingTimer.textContent = `${m}:${s}`;
+    }, 1000);
+  } catch (e) { alert('Error al acceder al micro: ' + e.message); }
+}
+
+async function uploadVoiceNote(file) {
+  D.sendLoading.classList.remove('hidden');
+  try {
+    const sRef = ref(storage, `voice/${S.channel}/${Date.now()}.webm`);
+    const res = await uploadBytes(sRef, file);
+    const url = await getDownloadURL(res.ref);
+    await addDoc(collection(db, 'messages'), {
+      audio:     url,
+      user:      S.profile?.displayName || 'Anónimo',
+      uid:       S.user.uid,
+      color:     S.profile?.color || getUserColor(S.user.uid),
+      channel:   S.channel,
+      timestamp: serverTimestamp(),
+      readBy:    [S.user.uid]
+    });
+  } catch (e) { console.error(e); }
+  finally { D.sendLoading.classList.add('hidden'); }
+}
+
+function stopRecording() {
+  S.mediaRecorder?.stop();
+  clearInterval(S.recInterval);
+  D.recordingBar.classList.add('hidden');
 }
 
 // ─────────────────────────────────────────────
@@ -590,8 +667,17 @@ function buildMsgEl(msgDoc) {
     ? `<img src="${esc(d.image)}" class="msg-img" alt="imagen" data-fullurl="${esc(d.image)}">`
     : '';
 
+  // Audio
+  const audioHTML = d.audio
+    ? `<audio src="${esc(d.audio)}" controls class="msg-audio"></audio>`
+    : '';
+
   // Reactions
   const reactHTML = buildReactHTML(d.reactions || {}, id);
+
+  // Read Tick (Visto)
+  const isRead = d.readBy && d.readBy.length > 1;
+  const tickHTML = isOwn ? `<span class="msg-tick ${isRead ? 'text-blue-400' : 'text-gray-500'}">✓✓</span>` : '';
 
   // Action buttons
   const actBtns = `
@@ -602,6 +688,7 @@ function buildMsgEl(msgDoc) {
         data-msg-text="${esc(d.text || '')}"
         data-msg-user="${name}"
         title="Responder">↩</button>
+      ${isOwn ? `<button class="msg-act-btn delete-trigger" data-msg-id="${id}" title="Borrar">🗑️</button>` : ''}
     </div>`;
 
   wrap.innerHTML = `
@@ -610,10 +697,11 @@ function buildMsgEl(msgDoc) {
       ${replyHTML}
       ${!isOwn ? `<div class="msg-name" style="color:${color}">${name}</div>` : ''}
       ${imgHTML}
+      ${audioHTML}
       ${d.text ? `<div class="msg-text">${esc(d.text)}</div>` : ''}
       <div class="msg-foot">
         <span class="msg-time">${fmtTime(d.timestamp)}</span>
-        ${isOwn ? '<span class="msg-tick">✓✓</span>' : ''}
+        ${tickHTML}
       </div>
       ${reactHTML}
     </div>
@@ -854,6 +942,10 @@ function updateConnStatus() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   });
 
+  // Voice
+  D.micBtn.addEventListener('click', startRecording);
+  D.stopRecBtn.addEventListener('click', stopRecording);
+
   // File
   D.imageInput.addEventListener('change', onFileChange);
   D.fileClear.addEventListener('click', clearFilePreview);
@@ -868,6 +960,8 @@ function updateConnStatus() {
   D.messages.addEventListener('click', e => {
     const replyBtn = e.target.closest('.reply-trigger');
     if (replyBtn) { setReplyTo(replyBtn.dataset.msgId, replyBtn.dataset.msgText, replyBtn.dataset.msgUser); return; }
+    const deleteBtn = e.target.closest('.delete-trigger');
+    if (deleteBtn) { deleteMessage(deleteBtn.dataset.msgId); return; }
     const reactBtn = e.target.closest('.react-trigger');
     if (reactBtn) { showPickerFor(reactBtn.dataset.msgId, reactBtn.closest('.msg-wrapper')); return; }
     const chip = e.target.closest('.react-chip');
