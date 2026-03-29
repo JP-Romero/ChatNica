@@ -77,7 +77,8 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(event.request)
         .then(res => {
-          if (res.ok) caches.open(CACHE_NAME).then(c => c.put(event.request, res.clone()));
+          const resClone = res.clone();
+          if (res.ok) caches.open(CACHE_NAME).then(c => c.put(event.request, resClone));
           return res;
         })
         .catch(async () => {

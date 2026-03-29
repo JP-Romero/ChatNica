@@ -162,15 +162,27 @@ async function compressImage(file, maxW = 1280, quality = 0.82) {
 //  AUTH
 // ─────────────────────────────────────────────
 onAuthStateChanged(auth, async user => {
-  if (user) {
-    S.user    = user;
-    S.profile = await ensureProfile(user);
-    showScreen('chat');
-    startSession();
-  } else {
-    S.user = S.profile = null;
-    stopSession();
-    showScreen('auth');
+  try {
+    if (user) {
+      S.user    = user;
+      S.profile = await ensureProfile(user);
+      showScreen('chat');
+      startSession();
+    } else {
+      S.user = S.profile = null;
+      stopSession();
+      showScreen('auth');
+    }
+  } catch (e) {
+    console.error("[ChatNica] Error crítico en inicio de sesión:", e);
+    
+    // Si el error es de permisos, es probable que sea en ensureProfile o startSession
+    const msg = e.code === 'permission-denied' 
+      ? 'Error de permisos en Firestore. Revisa las Reglas en la consola.' 
+      : 'Error al sincronizar perfil: ' + e.message;
+
+    showAuthError('login', msg);
+    showScreen('auth'); // Forzar salida del estado de carga
   }
 });
 
@@ -224,6 +236,7 @@ const friendlyError = e => ({
   'auth/popup-closed-by-user':  'Ventana cerrada. Intenta de nuevo.',
   'auth/network-request-failed':'Sin conexión. Revisa tu red.',
   'auth/api-key-not-valid':     '⚠️ Configura tus credenciales de Firebase en firebase-config.js',
+  'auth/operation-not-allowed': '⚠️ Debes habilitar este método de inicio de sesión en la Consola de Firebase.',
 }[e.code] || e.message || 'Error desconocido.');
 
 // ─────────────────────────────────────────────

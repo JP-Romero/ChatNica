@@ -44,6 +44,16 @@
            // No se permite borrar ni editar mensajes
            allow update, delete: if false;
          }
+         match /users/{userId} {
+           allow read, write: if request.auth != null && request.auth.uid == userId;
+         }
+         match /presence/{userId} {
+          allow read: if request.auth != null;
+          allow write: if request.auth != null && request.auth.uid == userId;
+         }
+         match /typing/{channelId} {
+           allow read, write: if request.auth != null;
+         }
        }
      }
      ```
