@@ -41,7 +41,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging.js";
 
 // 🔑 Reemplaza con tu clave VAPID desde Firebase Console → Project Settings → Cloud Messaging
-export const VAPID_KEY = 'YOUR_VAPID_KEY_HERE';
+export const VAPID_KEY = 'BCAKhDlx2jMfTCzFgKMwwoSi9qNwZOlhNqVaC7otueRS07ZsNfsDIGfKm5d8bDR65D-ByUUv_DCWj_k48BtCnOo';
 
 // ─── Tu configuración de Firebase ───────────────────────────
 const firebaseConfig = {
