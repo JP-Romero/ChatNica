@@ -799,10 +799,12 @@ async function setTyping(active) {
   const tRef = doc(db, 'typing', S.channel);
   try {
     if (active) {
-      const data = { [S.user.uid]: { name: S.profile.displayName, ts: serverTimestamp() } };
-      await updateDoc(tRef, data).catch(() => setDoc(tRef, data, { merge: true }));
+      await setDoc(tRef, { 
+        [S.user.uid]: { name: S.profile.displayName, ts: serverTimestamp() } 
+      }, { merge: true });
     } else {
-      await updateDoc(tRef, { [S.user.uid]: deleteField() }).catch(() => {});
+      const snap = await getDoc(tRef);
+      if (snap.exists()) await updateDoc(tRef, { [S.user.uid]: deleteField() }).catch(() => {});
     }
   } catch (e) { /* non-critical */ }
 }

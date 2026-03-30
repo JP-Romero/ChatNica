@@ -44,7 +44,7 @@
            // Permitir actualizar para reacciones y confirmación de lectura
            allow update: if request.auth != null;
            // Solo el autor puede borrar su propio mensaje
-           allow delete: if request.auth != null && request.resource.data.uid == request.auth.uid;
+           allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
          }
          match /users/{userId} {
            allow read, write: if request.auth != null && request.auth.uid == userId;
