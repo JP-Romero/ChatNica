@@ -52,9 +52,11 @@
     </div>
     <!-- Center: user info -->
     <div class="flex items-center gap-2 min-w-0">
-      <div id="header-avatar" class="header-avatar border-2 border-white/20"></div>
-      <span id="header-name" class="text-sm font-semibold text-white truncate max-w-[120px] hidden sm:block"></span>
-      <span id="online-count" class="text-xs text-green-400 font-medium hidden"></span>
+      <div id="header-avatar" class="header-avatar border-2 border-white/20 cursor-pointer"></div>
+      <div class="flex flex-col">
+        <span id="header-name" class="text-sm font-semibold text-white truncate max-w-[120px] hidden sm:block leading-none"></span>
+        <button id="btn-show-online" class="text-[10px] text-green-300 font-bold hover:text-white transition-colors text-left hidden"></button>
+      </div>
     </div>
     <!-- Right: status + logout -->
     <div class="flex items-center gap-3">
@@ -245,6 +247,21 @@
   </div>
 
 </section>
+
+<!-- ══════════════════════════════════════
+  USER LIST MODAL
+══════════════════════════════════════ -->
+<div id="user-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+  <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-popIn">
+    <div class="bg-nica-primary p-4 flex justify-between items-center text-white">
+      <h3 class="font-bold">Usuarios en línea</h3>
+      <button id="close-user-modal" class="text-white/80 hover:text-white text-xl">✕</button>
+    </div>
+    <div id="user-list-container" class="max-h-[60vh] overflow-y-auto p-2">
+      <!-- Se llena dinámicamente -->
+    </div>
+  </div>
+</div>
 
 <!-- ══════════════════════════════════════
   REACTION POPOVER (global floating)

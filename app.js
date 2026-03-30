@@ -110,6 +110,10 @@ const D = {
   pendingRow:     $('pending-indicator'),
   pendingCount:   $('pending-count'),
   reactionPopover:$('reaction-popover'),
+  userModal:      $('user-modal'),
+  userList:       $('user-list-container'),
+  btnOnline:      $('btn-show-online'),
+  closeUserModal: $('close-user-modal'),
   toast:          $('toast'),
   toastMsg:       $('toast-message'),
 };
@@ -388,6 +392,7 @@ function switchChannel(id) {
   });
   S.unread[id] = 0;
   loadMessages();
+  updatePresence();
 }
 
 function markUnread(chId) {
@@ -829,7 +834,9 @@ async function updatePresence() {
   if (!S.user || !S.profile) return;
   await setDoc(doc(db, 'presence', S.user.uid), {
     displayName: S.profile.displayName,
+    photoURL: S.profile.photoURL || null,
     online: true,
+    channel: S.channel,
     lastSeen: serverTimestamp()
   }, { merge: true }).catch(() => {});
 }
@@ -847,9 +854,34 @@ function subscribePresence() {
   const q = query(collection(db, 'presence'), where('lastSeen', '>', threshold));
   S.unsubPres = onSnapshot(q, snap => {
     const n = snap.size;
-    D.onlineCount.textContent = n > 0 ? `● ${n} en línea` : '';
-    D.onlineCount.style.display = n > 0 ? '' : 'none';
+    D.btnOnline.textContent = n > 0 ? `● ${n} en línea` : '';
+    D.btnOnline.classList.toggle('hidden', n === 0);
+
+    // Actualizar la lista interna del modal
+    renderUserList(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
   }, () => {});
+}
+
+function renderUserList(users) {
+  D.userList.innerHTML = '';
+  users.forEach(u => {
+    const item = document.createElement('div');
+    item.className = 'user-item';
+    
+    const avatar = u.photoURL 
+      ? `<img src="${esc(u.photoURL)}" class="user-avatar-small">`
+      : `<div class="user-avatar-small flex items-center justify-center text-white font-bold text-xs" style="background:${getUserColor(u.id)}">${getInitials(u.displayName)}</div>`;
+
+    item.innerHTML = `
+      ${avatar}
+      <div class="flex-1">
+        <div class="text-sm font-bold text-gray-800">${esc(u.displayName)}</div>
+        <div class="text-[10px] text-nica-primary font-medium">En #${esc(u.channel || 'general')}</div>
+      </div>
+      <div class="status-dot"></div>
+    `;
+    D.userList.appendChild(item);
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -952,6 +984,10 @@ function updateConnStatus() {
 
   // Load more
   D.loadMoreBtn.addEventListener('click', loadOlderMessages);
+
+  // Presence List
+  D.btnOnline.addEventListener('click', () => D.userModal.classList.remove('hidden'));
+  D.closeUserModal.addEventListener('click', () => D.userModal.classList.add('hidden'));
 
   // Reply
   D.cancelReply.addEventListener('click', clearReply);

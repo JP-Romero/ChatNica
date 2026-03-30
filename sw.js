@@ -4,7 +4,7 @@ SERVICE WORKER — ChatNica v2
 ═══════════════════════════════════════════════════════════════
 */
 
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v5';
 const CACHE_NAME    = `chatnica-${CACHE_VERSION}`;
 
 const SHELL_ASSETS = [

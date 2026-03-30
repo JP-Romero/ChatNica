@@ -549,6 +549,21 @@ input  { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+/* ── User List Item ──────────────────────────────────────── */
+.user-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 12px;
+  transition: background 0.2s;
+  border-bottom: 1px solid rgba(0,0,0,0.03);
+}
+.user-item:last-child { border-bottom: none; }
+.user-item:hover { background: #F1F5F9; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #22C55E; box-shadow: 0 0 0 2px white, 0 0 4px #22C55E; }
+.user-avatar-small { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+
 /* ── Toast notification ───────────────────────────────────── */
 .toast {
   position: fixed;
