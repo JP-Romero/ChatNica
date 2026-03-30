@@ -646,7 +646,7 @@ function buildMsgEl(msgDoc) {
   const id    = msgDoc.id;
   const isOwn = d.uid === S.user.uid;
   const color = d.color || getUserColor(d.uid);
-  const name  = esc(d.user);
+  const name  = isOwn ? 'Tú' : esc(d.user);
 
   const wrap = document.createElement('div');
   wrap.className = `msg-wrapper flex ${isOwn ? 'justify-end' : 'justify-start'} items-end gap-2`;
@@ -654,7 +654,7 @@ function buildMsgEl(msgDoc) {
 
   // Avatar
   const avatarHTML = isOwn ? '' : `
-    <div class="msg-avatar flex-shrink-0" style="background:${color}">
+    <div class="msg-avatar flex-shrink-0 shadow-sm" style="background:${color}">
       ${d.photoURL
         ? `<img src="${esc(d.photoURL)}" alt="" class="w-full h-full object-cover rounded-full">`
         : getInitials(d.user)}
@@ -662,9 +662,9 @@ function buildMsgEl(msgDoc) {
 
   // Reply context
   const replyHTML = d.replyTo ? `
-    <div class="reply-ctx">
-      <span class="reply-ctx-name">${esc(d.replyTo.user)}</span>
-      <span class="reply-ctx-text">${esc((d.replyTo.text || '📷').slice(0, 80))}</span>
+    <div class="reply-ctx border-l-2 border-nica-primary/30 bg-black/5 p-2 rounded mb-2">
+      <span class="text-[10px] font-bold block opacity-60">${esc(d.replyTo.user)}</span>
+      <span class="text-xs italic opacity-80 line-clamp-1">${esc((d.replyTo.text || '📷 Imagen').slice(0, 80))}</span>
     </div>` : '';
 
   // Image
@@ -682,25 +682,25 @@ function buildMsgEl(msgDoc) {
 
   // Read Tick (Visto)
   const isRead = d.readBy && d.readBy.length > 1;
-  const tickHTML = isOwn ? `<span class="msg-tick ${isRead ? 'text-blue-200' : 'text-white/50'} text-[10px] ml-1">✓✓</span>` : '';
+  const tickHTML = isOwn ? `<span class="msg-tick ${isRead ? 'text-nica-accent' : 'text-white/40'} text-[10px] ml-1">✓</span>` : '';
 
   // Action buttons
   const actBtns = `
-    <div class="msg-actions flex gap-1 ${isOwn ? 'order-first mr-1' : 'order-last ml-1'} opacity-0 group-hover:opacity-100 transition-opacity">
-      <button class="p-1 hover:bg-gray-200 rounded text-sm react-trigger" data-msg-id="${id}">😊</button>
-      <button class="p-1 hover:bg-gray-200 rounded text-sm reply-trigger"
+    <div class="msg-actions flex gap-1 ${isOwn ? 'order-first mr-2' : 'order-last ml-2'} opacity-0 group-hover:opacity-100 transition-opacity bg-white/50 backdrop-blur rounded-full px-2 py-1 shadow-sm border border-gray-100">
+      <button class="hover:scale-120 transition-transform react-trigger" data-msg-id="${id}">😊</button>
+      <button class="hover:scale-120 transition-transform reply-trigger"
         data-msg-id="${id}"
         data-msg-text="${esc(d.text || '')}"
-        data-msg-user="${name}"
+        data-msg-user="${esc(d.user)}"
         title="Responder">↩</button>
-      ${isOwn ? `<button class="msg-act-btn delete-trigger" data-msg-id="${id}" title="Borrar">🗑️</button>` : ''}
+      ${isOwn ? `<button class="text-red-400 hover:scale-120 transition-transform delete-trigger" data-msg-id="${id}" title="Borrar">🗑️</button>` : ''}
     </div>`;
 
   wrap.innerHTML = `
     ${avatarHTML}
-    <div class="msg-bubble group ${isOwn ? 'own' : 'other'} relative" style="${!isOwn ? `--c:${color}` : ''}">
+    <div class="msg-bubble group ${isOwn ? 'own shadow-nica-primary/10' : 'other shadow-sm'} relative" style="${!isOwn ? `--c:${color}` : ''}">
       ${replyHTML}
-      ${!isOwn ? `<div class="msg-name text-[11px] font-bold mb-1" style="color:${color}">${name}</div>` : ''}
+      ${!isOwn ? `<div class="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1" style="color:${color}">${name}</div>` : ''}
       ${imgHTML}
       ${audioHTML}
       ${d.text ? `<div class="msg-text text-sm leading-relaxed">${esc(d.text)}</div>` : ''}

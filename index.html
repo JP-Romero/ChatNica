@@ -21,12 +21,13 @@
         extend: {
           colors: {
             nica: {
-              primary: '#0066FF', // Azul vibrante (visto en el icono)
-              secondary: '#00A3FF',
-              bg:      '#F0F4F9', // Fondo claro y moderno
+              primary: '#004A99', // Azul Prusia (Profesional, Bandera)
+              accent:  '#00D4FF', // Cyan Eléctrico (Modernidad)
+              bg:      '#F8FAFC', // Fondo ultra-limpio
               surface: '#FFFFFF',
-              text:    '#1C1E21',
-              muted:   '#65676B',
+              text:    '#0F172A',
+              muted:   '#64748B',
+              glass:   'rgba(255, 255, 255, 0.8)'
             }
           }
         }
@@ -39,32 +40,29 @@
   <script type="module" src="app.js"></script>
 </head>
 
-<body class="bg-nica-bg text-nica-text" style="height:100dvh;display:flex;flex-direction:column;overflow:hidden">
+<body class="bg-nica-bg text-nica-text font-sans antialiased" style="height:100dvh;display:flex;flex-direction:column;overflow:hidden">
 
 <!-- ══════════════════════════════════════
   HEADER
 ══════════════════════════════════════ -->
-<header class="bg-nica-primary shadow-md flex-shrink-0 z-20">
-  <div class="header-inner">
+<header class="bg-nica-surface/80 backdrop-blur-md border-b border-gray-100 flex-shrink-0 z-20">
+  <div class="header-inner px-6 py-3">
     <!-- Logo -->
     <div class="flex items-center gap-2">
-      <span class="text-lg font-black tracking-tight text-white">💬 ChatNica</span>
+      <span class="text-xl font-black tracking-tighter bg-gradient-to-r from-nica-primary to-nica-accent bg-clip-text text-transparent uppercase">ChatNica</span>
     </div>
     <!-- Center: user info -->
     <div class="flex items-center gap-2 min-w-0">
-      <div id="header-avatar" class="header-avatar border-2 border-white/20 cursor-pointer"></div>
+      <div id="header-avatar" class="header-avatar border-2 border-nica-primary/10 shadow-sm cursor-pointer hover:scale-105 transition-transform"></div>
       <div class="flex flex-col">
-        <span id="header-name" class="text-sm font-semibold text-white truncate max-w-[120px] hidden sm:block leading-none"></span>
-        <button id="btn-show-online" class="text-[10px] text-green-300 font-bold hover:text-white transition-colors text-left hidden"></button>
+        <span id="header-name" class="text-sm font-bold text-nica-text truncate max-w-[120px] hidden sm:block leading-none"></span>
+        <button id="btn-show-online" class="text-[10px] text-nica-primary font-bold hover:underline transition-colors text-left hidden uppercase tracking-widest"></button>
       </div>
     </div>
     <!-- Right: status + logout -->
     <div class="flex items-center gap-3">
-      <span id="connection-status" class="text-sm font-medium text-green-400 hidden sm:block"></span>
-      <button id="btn-logout"
-        class="hidden text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition border border-white/10">
-        Salir
-      </button>
+      <span id="connection-status" class="text-[10px] uppercase font-bold text-green-500 hidden sm:block tracking-widest"></span>
+      <button id="btn-logout" class="hidden text-xs font-bold text-red-500 hover:bg-red-50 rounded-full px-4 py-2 transition border border-red-100">Salir</button>
     </div>
   </div>
 </header>
@@ -146,13 +144,13 @@
 ══════════════════════════════════════ -->
 <section id="chat-screen" class="hidden flex-1 flex flex-col overflow-hidden">
 
-  <!-- Channel bar -->
-  <div id="channels-bar" class="bg-white border-b border-gray-200 flex overflow-x-auto p-2 gap-2 scrollbar-hide">
-    <button data-channel="general"   class="channel-btn active"># General</button>
-    <button data-channel="ayuda"     class="channel-btn"># Ayuda</button>
-    <button data-channel="comunidad" class="channel-btn"># Comunidad</button>
-    <button data-channel="noticias"  class="channel-btn"># Noticias</button>
-    <button data-channel="fotos"     class="channel-btn"># Fotos</button>
+  <!-- Navigation bar (replaces the channel bar) -->
+  <div id="channels-bar" class="bg-nica-surface flex items-center justify-around sm:justify-start overflow-x-auto px-4 py-3 gap-1 scrollbar-hide border-b border-gray-50">
+    <button data-channel="general"   class="nav-pill active">Explorar</button>
+    <button data-channel="ayuda"     class="nav-pill">Soporte</button>
+    <button data-channel="comunidad" class="nav-pill">Social</button>
+    <button data-channel="noticias"  class="nav-pill">Avisos</button>
+    <button data-channel="fotos"     class="nav-pill">Galería</button>
   </div>
 
   <!-- Load more -->
@@ -187,8 +185,8 @@
   </div>
 
   <!-- Input area -->
-  <div class="flex-shrink-0 bg-white border-t border-gray-200 p-2 pb-safe">
-    <form id="message-form" class="input-row">
+  <div class="flex-shrink-0 bg-nica-surface p-4 pb-safe border-t border-gray-50">
+    <form id="message-form" class="max-w-4xl mx-auto flex items-center gap-2 bg-gray-50 rounded-2xl p-1.5 ring-1 ring-gray-200 focus-within:ring-nica-primary/50 transition-all">
       <!-- Image button -->
       <label for="image-input"
         class="p-2 text-nica-muted hover:text-nica-primary transition-colors flex-shrink-0" title="Adjuntar imagen">
@@ -208,12 +206,12 @@
 
       <!-- Text input -->
       <input type="text" id="message-input" placeholder="Mensaje..." autocomplete="off"
-        class="flex-1 bg-gray-100 border-none rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-nica-primary transition-all">
+        class="flex-1 bg-transparent border-none px-2 py-2 text-sm focus:ring-0 placeholder:text-gray-400">
 
       <!-- Send button -->
-      <button type="submit" id="btn-send" class="bg-nica-primary text-white p-2 rounded-full hover:bg-nica-secondary transition-all flex-shrink-0 shadow-sm ml-1">
-        <svg id="send-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 rotate-45" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+      <button type="submit" id="btn-send" class="bg-nica-primary text-white p-2.5 rounded-xl hover:bg-nica-primary/90 transition-all flex-shrink-0 shadow-lg shadow-nica-primary/20">
+        <svg id="send-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
         </svg>
         <div id="send-loading" class="hidden w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
       </button>
