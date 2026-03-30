@@ -41,8 +41,10 @@
            allow read: if request.auth != null;
            // Solo el autor puede escribir (o cualquiera autenticado para este chat)
            allow create: if request.auth != null;
-           // No se permite borrar ni editar mensajes
-           allow update, delete: if false;
+           // Permitir actualizar para reacciones y confirmación de lectura
+           allow update: if request.auth != null;
+           // Solo el autor puede borrar su propio mensaje
+           allow delete: if request.auth != null && request.resource.data.uid == request.auth.uid;
          }
          match /users/{userId} {
            allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -70,6 +72,10 @@
          match /chats/{allPaths=**} {
            allow read: if request.auth != null;
            allow write: if request.auth != null && request.resource.size < 5 * 1024 * 1024; // Máx 5MB
+         }
+         match /voice/{allPaths=**} {
+           allow read: if request.auth != null;
+           allow write: if request.auth != null && request.resource.size < 2 * 1024 * 1024; // Máx 2MB para audio
          }
        }
      }
