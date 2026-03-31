@@ -640,12 +640,19 @@ function subscribeConversations() {
   S.unsubConvs?.();
   const q = query(
     collection(db, 'conversations'),
-    where('participants', 'array-contains', S.user.uid),
-    orderBy('lastMessageTime', 'desc')
+    where('participants', 'array-contains', S.user.uid)
   );
   S.unsubConvs = onSnapshot(q, snap => {
     const convs = [];
     snap.forEach(d => convs.push({ id: d.id, ...d.data() }));
+    convs.sort((a, b) => {
+      const ta = a.lastMessageTime?.toMillis?.() || 0;
+      const tb = b.lastMessageTime?.toMillis?.() || 0;
+      if (ta === 0 && tb === 0) return 0;
+      if (ta === 0) return 1;
+      if (tb === 0) return -1;
+      return tb - ta;
+    });
     renderConversations(convs);
   }, err => {
     console.error('[ChatNica] convs error:', err);
@@ -1225,14 +1232,17 @@ function subscribeFeed() {
 
     const q = query(
       collection(db, 'posts'),
-      where('uid', 'in', contactUids.length <= 10 ? contactUids : contactUids.slice(0, 10)),
-      orderBy('timestamp', 'desc'),
-      limit(30)
+      where('uid', 'in', contactUids.length <= 10 ? contactUids : contactUids.slice(0, 10))
     );
 
     S.unsubFeed = onSnapshot(q, snap => {
       const posts = [];
       snap.forEach(d => posts.push({ id: d.id, ...d.data() }));
+      posts.sort((a, b) => {
+        const ta = a.timestamp?.toMillis?.() || 0;
+        const tb = b.timestamp?.toMillis?.() || 0;
+        return tb - ta;
+      });
       renderFeed(posts);
     }, err => {
       console.error('[ChatNica] feed error:', err);
