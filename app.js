@@ -2125,6 +2125,11 @@ onAuthStateChanged(auth, async user => {
     D.modalAppSettings.classList.remove('hidden');
   });
 
+  // Cerrar modal de ajustes
+  D.modalAppSettings.querySelector('.modal-close').addEventListener('click', () => {
+    D.modalAppSettings.classList.add('hidden');
+  });
+
   const DEFAULT_FONT_SIZE = 16;
   const savedFontSize = localStorage.getItem('chatnica-font-size');
   const currentSize = savedFontSize ? parseInt(savedFontSize) : DEFAULT_FONT_SIZE;
