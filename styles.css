@@ -354,7 +354,7 @@ button { cursor: pointer; }
 .msg-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
 .msg-bubble {
-  max-width: 80%;
+  max-width: 75%;
   padding: 8px 12px;
   border-radius: 1rem;
   word-break: break-word;
@@ -403,7 +403,9 @@ button { cursor: pointer; }
   margin-top: 2px;
 }
 .msg-time { font-size: 0.65rem; opacity: 0.6; }
-.msg-tick { font-size: 0.65rem; color: #53BDEB; }
+.msg-tick { font-size: 0.65rem; color: #9CA3AF; }
+.msg-tick[data-status="delivered"] { color: #9CA3AF; }
+.msg-tick[data-status="read"] { color: #53BDEB; }
 
 /* Reply context */
 .reply-ctx {

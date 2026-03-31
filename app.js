@@ -54,7 +54,7 @@ const D = {
   regName: $('reg-name'), regEmail: $('reg-email'), regPassword: $('reg-password'),
   regBtn: $('reg-btn'), regError: $('reg-error'),
   headerAvatar: $('header-avatar'), headerTitle: $('header-title'), headerSubtitle: $('header-subtitle'),
-  btnNew: $('btn-new'), btnLogout: $('btn-logout'), bottomNav: $('bottom-nav'),
+  btnNew: $('btn-new'), btnReload: $('btn-reload'), btnLogout: $('btn-logout'), bottomNav: $('bottom-nav'),
   tabChats: $('tab-chats'), tabContacts: $('tab-contacts'), tabFeed: $('tab-feed'), tabProfile: $('tab-profile'),
   convsList: $('conversations-list'), emptyChats: $('empty-chats'),
   contactsSearchInput: $('contacts-search-input'),
@@ -148,6 +148,12 @@ const fmtTimeAgo = ts => {
 const isNearBottom = () => {
   const c = D.chatMessages;
   return (c.scrollHeight - c.scrollTop - c.clientHeight) < 150;
+};
+
+const getTickIcon = status => {
+  if (status === 'read') return '✓✓';
+  if (status === 'delivered') return '✓✓';
+  return '✓';
 };
 
 const scrollBottom = () => { D.chatMessages.scrollTop = D.chatMessages.scrollHeight; };
@@ -883,6 +889,9 @@ function loadMessages() {
       S.msgEls.set(d.id, el);
     });
     scrollBottom();
+
+    markMessagesDelivered(allDocs);
+    updateTicksVisual();
   }, err => {
     console.error('[ChatNica] Error cargando mensajes:', err);
   });
@@ -915,7 +924,7 @@ function buildMsgEl(msgDoc) {
 
   const reactHTML = buildReactHTML(d.reactions || {}, id);
 
-  const tickHTML = isOwn ? `<span class="msg-tick">✓</span>` : '';
+  const tickHTML = isOwn ? `<span class="msg-tick" data-msg-id="${id}" data-status="${esc(d.status || 'sent')}">${getTickIcon(d.status || 'sent')}</span>` : '';
 
   const actBtns = `
     <div class="msg-actions">
@@ -999,7 +1008,8 @@ async function sendMessage() {
       color: S.profile?.color || getUserColor(S.user.uid),
       timestamp: serverTimestamp(),
       reactions: {},
-      replyTo: S.replyTo || null
+      replyTo: S.replyTo || null,
+      status: 'sent'
     };
 
     console.log('[ChatNica] Enviando mensaje:', JSON.stringify(msg, null, 2));
@@ -1031,6 +1041,26 @@ async function deleteMessage(id) {
     await deleteDoc(doc(db, 'messages', id));
     showToast('Mensaje eliminado');
   } catch (e) { showToast('Error: ' + e.message); }
+}
+
+async function markMessagesDelivered(allDocs) {
+  if (!S.currentConv) return;
+  const notOwnNotDelivered = allDocs.filter(d => {
+    const data = d.data();
+    return data.uid !== S.user.uid && (!data.status || data.status === 'sent');
+  });
+  for (const d of notOwnNotDelivered) {
+    try {
+      await updateDoc(doc(db, 'messages', d.id), { status: 'read' });
+    } catch (e) {}
+  }
+}
+
+function updateTicksVisual() {
+  document.querySelectorAll('.msg-tick[data-msg-id]').forEach(tick => {
+    const status = tick.dataset.status;
+    tick.textContent = getTickIcon(status);
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -1159,7 +1189,8 @@ async function uploadVoiceNote(file) {
       user: S.profile?.displayName || 'Anónimo',
       uid: S.user.uid,
       color: S.profile?.color || getUserColor(S.user.uid),
-      timestamp: serverTimestamp(), reactions: {}, replyTo: null
+      timestamp: serverTimestamp(), reactions: {}, replyTo: null,
+      status: 'sent'
     });
     await updateDoc(doc(db, 'conversations', S.currentConv.id), {
       lastMessage: '🎤 Nota de voz',
@@ -1836,6 +1867,7 @@ onAuthStateChanged(auth, async user => {
 
   // Header actions
   D.btnNew.addEventListener('click', openNewConvModal);
+  D.btnReload.addEventListener('click', () => window.location.reload());
   D.headerAvatar.addEventListener('click', () => switchTab('profile'));
 
   // New conversation
