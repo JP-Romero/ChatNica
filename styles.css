@@ -331,9 +331,9 @@ button { cursor: pointer; }
 /* ── Message Wrappers ─────────────────────────────────────── */
 .msg-wrapper {
   display: flex;
-  gap: 6px;
   padding: 2px 12px;
   align-items: center;
+  position: relative;
 }
 .msg-wrapper.own { justify-content: flex-end; }
 .msg-wrapper.other { justify-content: flex-start; }
