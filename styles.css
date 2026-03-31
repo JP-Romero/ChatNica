@@ -20,6 +20,16 @@ ESTILOS PERSONALIZADOS — ChatNica PWA
   @apply bg-[#001845] text-[#E6F0FF] mr-auto rounded-bl-none border border-[#0047AB]/40;
 }
 
+/* Reproductor de audio personalizado */
+audio {
+  filter: invert(100%) hue-rotate(180deg) brightness(1.5);
+  @apply opacity-80 hover:opacity-100 transition-opacity;
+}
+
+.message-bubble.own audio {
+  filter: invert(100%) brightness(2);
+}
+
 /* Animación suave al aparecer mensajes */
 @keyframes slideIn {
   from { opacity: 0; transform: translateY(10px); }

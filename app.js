@@ -27,6 +27,13 @@ const usernameInput = document.getElementById('username-input');
 const messageForm = document.getElementById('message-form');
 const messageInput = document.getElementById('message-input');
 const imageInput = document.getElementById('image-input');
+const imagePreviewContainer = document.getElementById('image-preview-container');
+const imagePreview = document.getElementById('image-preview');
+const btnRemoveImage = document.getElementById('btn-remove-image');
+const btnRecord = document.getElementById('btn-record');
+const recordingStatus = document.getElementById('recording-status');
+const recordingTime = document.getElementById('recording-time');
+const btnStopRecord = document.getElementById('btn-stop-record');
 const btnSend = document.getElementById('btn-send');
 const sendIcon = document.getElementById('send-icon');
 const sendLoading = document.getElementById('send-loading');
@@ -43,6 +50,12 @@ let unsubscribeMessages = null;
 let isTabActive = true;
 let unreadCount = 0;
 let currentChannel = 'general';
+
+// Recording Variables
+let mediaRecorder;
+let audioChunks = [];
+let recordingInterval;
+let startTime;
 
 // ─────────────────────────────────────────────
 //  AUTH LOGIC
@@ -164,7 +177,8 @@ messageForm.addEventListener('submit', async (e) => {
 
     // Si hay archivo, subirlo primero
     if (file) {
-      const fileRef = ref(storage, `chats/${currentChannel}/${Date.now()}_${file.name}`);
+      const fileName = `${Date.now()}_${file.name}`;
+      const fileRef = ref(storage, `chats/${currentChannel}/${fileName}`);
       const uploadResult = await uploadBytes(fileRef, file);
       imageUrl = await getDownloadURL(uploadResult.ref);
     }
@@ -172,6 +186,7 @@ messageForm.addEventListener('submit', async (e) => {
     const messageContent = text;
     messageInput.value = '';
     imageInput.value = ''; // Limpiar selector de archivo
+    imagePreviewContainer.classList.add('hidden');
 
     await addDoc(collection(db, "messages"), {
       text: messageContent,
@@ -279,6 +294,10 @@ function renderMessage(msg) {
       onclick="window.open('${msg.image}', '_blank')">
   ` : '';
 
+  const audioHTML = msg.audio ? `
+    <audio src="${msg.audio}" controls class="w-full max-w-[240px] mt-1 h-10"></audio>
+  ` : '';
+
   div.innerHTML = `
     ${avatarHTML}
     <div class="message-bubble ${isOwn ? 'own' : 'other'}" style="${!isOwn ? `border-left: 4px solid ${color}` : ''}">
@@ -286,7 +305,8 @@ function renderMessage(msg) {
         <span>${isOwn ? 'Tú' : safeUser}</span>
       </div>
       ${imageHTML}
-      ${safeText ? `<div class="text-sm md:text-base break-words">${safeText}</div>` : ''}
+      ${audioHTML}
+      ${safeText ? `<div class="text-sm md:text-base break-words mt-1">${safeText}</div>` : ''}
       <div class="text-[9px] opacity-40 text-right mt-1">${time}</div>
     </div>
   `;
@@ -345,3 +365,112 @@ function updatePendingIndicator(isPending, count) {
 window.addEventListener('online', updateStatus);
 window.addEventListener('offline', updateStatus);
 updateStatus();
+
+// ─────────────────────────────────────────────
+//  MEDIA LOGIC (Photography & Audio)
+// ─────────────────────────────────────────────
+
+// Image Preview logic
+imageInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file && file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      imagePreview.src = event.target.result;
+      imagePreviewContainer.classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+  } else {
+    imagePreviewContainer.classList.add('hidden');
+  }
+});
+
+btnRemoveImage.addEventListener('click', () => {
+  imageInput.value = '';
+  imagePreviewContainer.classList.add('hidden');
+});
+
+// Audio Recording logic
+btnRecord.addEventListener('click', async () => {
+  if (mediaRecorder && mediaRecorder.state === 'recording') return;
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = (event) => {
+      audioChunks.push(event.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      await sendAudioMessage(audioBlob);
+      // Detener todos los tracks del stream para liberar el micrófono
+      stream.getTracks().forEach(track => track.stop());
+    };
+
+    mediaRecorder.start();
+    showRecordingStatus(true);
+  } catch (err) {
+    console.error("Error al acceder al micrófono:", err);
+    alert("No se pudo acceder al micrófono. Asegúrate de dar permisos.");
+  }
+});
+
+btnStopRecord.addEventListener('click', () => {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    showRecordingStatus(false);
+  }
+});
+
+function showRecordingStatus(isRecording) {
+  if (isRecording) {
+    recordingStatus.classList.remove('hidden');
+    startTime = Date.now();
+    recordingInterval = setInterval(() => {
+      const seconds = Math.floor((Date.now() - startTime) / 1000);
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      recordingTime.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+    }, 1000);
+  } else {
+    recordingStatus.classList.add('hidden');
+    clearInterval(recordingInterval);
+    recordingTime.textContent = '0:00';
+  }
+}
+
+async function sendAudioMessage(blob) {
+  const name = localStorage.getItem('chatnica_name');
+  if (!name || !auth.currentUser) return;
+
+  try {
+    // UI Loading state
+    btnSend.disabled = true;
+    sendIcon.classList.add('hidden');
+    sendLoading.classList.remove('hidden');
+
+    const fileName = `audio_${Date.now()}.webm`;
+    const audioRef = ref(storage, `chats/${currentChannel}/${fileName}`);
+    const uploadResult = await uploadBytes(audioRef, blob);
+    const audioUrl = await getDownloadURL(uploadResult.ref);
+
+    await addDoc(collection(db, "messages"), {
+      text: "",
+      audio: audioUrl,
+      user: name,
+      uid: auth.currentUser.uid,
+      channel: currentChannel,
+      timestamp: serverTimestamp()
+    });
+  } catch (error) {
+    console.error("Error al enviar audio:", error);
+    alert("Error al enviar audio: " + error.message);
+  } finally {
+    btnSend.disabled = false;
+    sendIcon.classList.remove('hidden');
+    sendLoading.classList.add('hidden');
+  }
+}
