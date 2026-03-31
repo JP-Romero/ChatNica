@@ -54,7 +54,7 @@ const D = {
   regName: $('reg-name'), regEmail: $('reg-email'), regPassword: $('reg-password'),
   regBtn: $('reg-btn'), regError: $('reg-error'),
   headerAvatar: $('header-avatar'), headerTitle: $('header-title'), headerSubtitle: $('header-subtitle'),
-  btnNew: $('btn-new'), btnLogout: $('btn-logout'),
+  btnNew: $('btn-new'), btnLogout: $('btn-logout'), bottomNav: $('bottom-nav'),
   tabChats: $('tab-chats'), tabContacts: $('tab-contacts'), tabFeed: $('tab-feed'), tabProfile: $('tab-profile'),
   convsList: $('conversations-list'), emptyChats: $('empty-chats'),
   contactsSearchInput: $('contacts-search-input'),
