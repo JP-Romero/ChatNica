@@ -12,6 +12,12 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
 
+  <script>
+    (function(){
+      var s = localStorage.getItem('chatnica-font-size');
+      if(s) document.body.style.setProperty('--nica-font-size', s + 'px');
+    })();
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
