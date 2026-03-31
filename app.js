@@ -846,17 +846,24 @@ function loadMessages() {
   D.chatMessages.appendChild(D.emptyChat);
   D.emptyChat.classList.remove('hidden');
 
-  const q = query(collection(db, 'messages'), where('conversationId', '==', S.currentConv.id));
+  const q = query(collection(db, 'messages'));
   S.unsubMsgs = onSnapshot(q, snap => {
-    const docs = [];
-    snap.forEach(d => docs.push(d));
-    docs.sort((a, b) => {
+    const allDocs = [];
+    snap.forEach(d => {
+      const data = d.data();
+      if (data.conversationId === S.currentConv.id) {
+        allDocs.push(d);
+      }
+    });
+    allDocs.sort((a, b) => {
       const ta = a.data().timestamp?.toMillis?.() || 0;
       const tb = b.data().timestamp?.toMillis?.() || 0;
       return ta - tb;
     });
 
-    const hasMessages = docs.length > 0;
+    console.log('[ChatNica] Mensajes en conversación:', allDocs.length);
+
+    const hasMessages = allDocs.length > 0;
     D.emptyChat.classList.toggle('hidden', hasMessages);
 
     if (!hasMessages) {
@@ -868,7 +875,7 @@ function loadMessages() {
 
     D.chatMessages.innerHTML = '';
     S.msgEls.clear();
-    docs.forEach(d => {
+    allDocs.forEach(d => {
       const el = buildMsgEl(d);
       D.chatMessages.appendChild(el);
       S.msgEls.set(d.id, el);
