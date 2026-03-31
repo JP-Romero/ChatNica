@@ -59,7 +59,9 @@ const D = {
   convsList: $('conversations-list'), emptyChats: $('empty-chats'),
   contactsSearchInput: $('contacts-search-input'),
   contactsPendingSection: $('contacts-pending-section'), contactsPendingList: $('contacts-pending-list'),
-  contactsAcceptedList: $('contacts-accepted-list'), emptyContacts: $('empty-contacts'),
+  contactsAcceptedList: $('contacts-accepted-list'),
+  contactsDiscoverSection: $('contacts-discover-section'), contactsDiscoverList: $('contacts-discover-list'),
+  emptyContacts: $('empty-contacts'),
   feedList: $('feed-list'), emptyFeed: $('empty-feed'),
   profileAvatarLarge: $('profile-avatar-large'), profileName: $('profile-name'),
   profileEmail: $('profile-email'), profileBio: $('profile-bio'), profileCity: $('profile-city'),
@@ -422,14 +424,41 @@ function subscribeContacts() {
     getDocs(q2).then(snap2 => {
       const outgoing = [];
       snap2.forEach(d => outgoing.push({ id: d.id, ...d.data() }));
-      renderContacts(incoming, outgoing);
+      loadAllUsers().then(users => {
+        renderContacts(incoming, outgoing, users);
+      });
     });
   });
 }
 
-function renderContacts(incoming, outgoing) {
+async function loadAllUsers() {
+  const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+  const snap = await getDocs(q);
+  const users = [];
+  snap.forEach(d => {
+    if (d.id !== S.user.uid) {
+      users.push({ uid: d.id, ...d.data() });
+    }
+  });
+  return users;
+}
+
+function getContactStatus(uid, incoming, outgoing) {
+  const incomingContact = incoming.find(c => c.requesterUid === uid);
+  if (incomingContact) return { status: incomingContact.status, id: incomingContact.id, direction: 'incoming' };
+  const outgoingContact = outgoing.find(c => c.targetUid === uid);
+  if (outgoingContact) return { status: outgoingContact.status, id: outgoingContact.id, direction: 'outgoing' };
+  return { status: 'none', id: null, direction: 'none' };
+}
+
+function renderContacts(incoming, outgoing, allUsers) {
   const pending = incoming.filter(c => c.status === 'pending');
   const accepted = incoming.filter(c => c.status === 'accepted');
+  const acceptedUids = new Set(accepted.map(c => c.requesterUid));
+  const pendingUids = new Set();
+  incoming.filter(c => c.status === 'pending').forEach(c => pendingUids.add(c.requesterUid));
+  outgoing.filter(c => c.status === 'pending').forEach(c => pendingUids.add(c.targetUid));
+  outgoing.filter(c => c.status === 'accepted').forEach(c => acceptedUids.add(c.targetUid));
 
   D.contactsPendingSection.classList.toggle('hidden', !pending.length);
   if (pending.length) {
@@ -440,7 +469,18 @@ function renderContacts(incoming, outgoing) {
     D.contactsAcceptedList.innerHTML = accepted.map(c => contactItemHTML(c, 'accepted')).join('');
   }
 
-  D.emptyContacts.classList.toggle('hidden', accepted.length > 0 || pending.length > 0);
+  const discoverUsers = allUsers.filter(u => !acceptedUids.has(u.uid));
+  if (discoverUsers.length) {
+    D.contactsDiscoverSection.classList.remove('hidden');
+    D.contactsDiscoverList.innerHTML = discoverUsers.map(u => {
+      const contactInfo = getContactStatus(u.uid, incoming, outgoing);
+      return discoverUserHTML(u, contactInfo);
+    }).join('');
+  } else {
+    D.contactsDiscoverSection.classList.add('hidden');
+  }
+
+  D.emptyContacts.classList.toggle('hidden', accepted.length > 0 || pending.length > 0 || discoverUsers.length > 0);
 
   refreshOnlineIndicators();
 }
@@ -474,6 +514,54 @@ function contactItemHTML(c, type) {
 
   return `
     <div class="contact-item" data-uid="${otherUid}">
+      <div class="contact-avatar" style="background:${color}">
+        ${avatarInner}
+        ${onlineDot}
+      </div>
+      <div class="contact-info">
+        <div class="contact-name">${name}</div>
+        ${city ? `<div class="contact-city">${city}</div>` : ''}
+      </div>
+      ${actions}
+    </div>`;
+}
+
+function discoverUserHTML(u, contactInfo) {
+  const color = u.color || getUserColor(u.uid);
+  const name = esc(u.displayName || 'Usuario');
+  const city = u.city ? esc(u.city) : '';
+  const online = isOnline(u.uid);
+  const onlineDot = `<div class="online-dot${online ? '' : ' hidden'}" data-uid="${u.uid}"></div>`;
+
+  const avatarInner = u.photoURL
+    ? `<img src="${esc(u.photoURL)}" alt="">`
+    : getInitials(u.displayName || 'U');
+
+  let actions = '';
+  if (contactInfo.status === 'none') {
+    actions = `
+      <div class="contact-actions">
+        <button class="contact-btn contact-btn-chat" data-action="add-contact" data-uid="${u.uid}">Agregar</button>
+      </div>`;
+  } else if (contactInfo.status === 'pending') {
+    if (contactInfo.direction === 'outgoing') {
+      actions = `<div class="contact-actions"><button class="contact-btn contact-btn-pending" disabled>Solicitud enviada</button></div>`;
+    } else {
+      actions = `
+        <div class="contact-actions">
+          <button class="contact-btn contact-btn-accept" data-action="accept" data-contact-id="${contactInfo.id}">Aceptar</button>
+          <button class="contact-btn contact-btn-reject" data-action="reject" data-contact-id="${contactInfo.id}">Rechazar</button>
+        </div>`;
+    }
+  } else if (contactInfo.status === 'accepted') {
+    actions = `
+      <div class="contact-actions">
+        <button class="contact-btn contact-btn-chat" data-action="chat" data-uid="${u.uid}">💬</button>
+      </div>`;
+  }
+
+  return `
+    <div class="contact-item" data-uid="${u.uid}">
       <div class="contact-avatar" style="background:${color}">
         ${avatarInner}
         ${onlineDot}
@@ -1587,13 +1675,13 @@ D.contactsSearchInput?.addEventListener('input', e => {
     }
     const results = await searchUsers(q);
     if (!results.length) {
-      D.contactsAcceptedList.innerHTML = '<p class="text-center text-nica-muted py-4 text-sm">No se encontraron resultados</p>';
-      D.emptyContacts.classList.add('hidden');
+      D.contactsDiscoverList.innerHTML = '<p class="text-center text-nica-muted py-4 text-sm">No se encontraron resultados</p>';
+      D.contactsDiscoverSection.classList.remove('hidden');
       return;
     }
     D.contactsPendingSection.classList.add('hidden');
     D.emptyContacts.classList.add('hidden');
-    D.contactsAcceptedList.innerHTML = results.map(u => {
+    D.contactsDiscoverList.innerHTML = results.map(u => {
       const color = u.color || getUserColor(u.uid);
       const name = esc(u.displayName || 'Usuario');
       const city = u.city ? esc(u.city) : '';
@@ -1612,6 +1700,7 @@ D.contactsSearchInput?.addEventListener('input', e => {
           </div>
         </div>`;
     }).join('');
+    D.contactsDiscoverSection.classList.remove('hidden');
   }, 400);
 });
 
@@ -1720,7 +1809,7 @@ onAuthStateChanged(auth, async user => {
   });
 
   // Contacts list
-  D.contactsAcceptedList.addEventListener('click', async e => {
+  document.getElementById('contacts-list').addEventListener('click', async e => {
     const addBtn = e.target.closest('[data-action="add-contact"]');
     if (addBtn) {
       await sendContactRequest(addBtn.dataset.uid);
