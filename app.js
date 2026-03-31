@@ -23,6 +23,7 @@ const PRESENCE_STALE_MS = 6 * 60_000;
 const MAX_FILE_MB = 5;
 const ALLOWED_TYPES = ['image/jpeg','image/png','image/gif','image/webp'];
 const AVATAR_COLORS = ['#60A5FA','#F87171','#34D399','#FBBF24','#A78BFA','#F472B6','#2DD4BF','#FB923C'];
+const DEFAULT_FONT_SIZE = 16;
 
 // ─────────────────────────────────────────────
 //  STATE
@@ -363,10 +364,10 @@ function switchTab(tab) {
 }
 
 function applyFontSize(size) {
-  document.documentElement.style.fontSize = size + 'px';
+  document.body.style.fontSize = size + 'px';
   const label = size === DEFAULT_FONT_SIZE ? `${size}px (predeterminado)` : `${size}px`;
-  D.fontSizeValue.textContent = label;
-  D.fontSizePreview.style.fontSize = size + 'px';
+  if (D.fontSizeValue) D.fontSizeValue.textContent = label;
+  if (D.fontSizePreview) D.fontSizePreview.style.fontSize = size + 'px';
 }
 
 // ─────────────────────────────────────────────
@@ -2122,29 +2123,31 @@ onAuthStateChanged(auth, async user => {
 
   // App Settings
   D.btnAppSettings.addEventListener('click', () => {
+    const saved = localStorage.getItem('chatnica-font-size');
+    const size = saved ? parseInt(saved) : DEFAULT_FONT_SIZE;
+    D.fontSizeSlider.value = size;
+    applyFontSize(size);
     D.modalAppSettings.classList.remove('hidden');
   });
 
-  // Cerrar modal de ajustes
   D.modalAppSettings.querySelector('.modal-close').addEventListener('click', () => {
     D.modalAppSettings.classList.add('hidden');
   });
 
-  const DEFAULT_FONT_SIZE = 16;
-  const savedFontSize = localStorage.getItem('chatnica-font-size');
-  const currentSize = savedFontSize ? parseInt(savedFontSize) : DEFAULT_FONT_SIZE;
-  applyFontSize(currentSize);
-
-  D.fontSizeSlider.value = currentSize;
   D.fontSizeSlider.addEventListener('input', () => {
     const size = parseInt(D.fontSizeSlider.value);
-    applyFontSize(size);
+    document.body.style.fontSize = size + 'px';
+    const label = size === DEFAULT_FONT_SIZE ? `${size}px (predeterminado)` : `${size}px`;
+    D.fontSizeValue.textContent = label;
+    D.fontSizePreview.style.fontSize = size + 'px';
     localStorage.setItem('chatnica-font-size', size);
   });
 
   D.btnResetFont.addEventListener('click', () => {
-    applyFontSize(DEFAULT_FONT_SIZE);
+    document.body.style.fontSize = DEFAULT_FONT_SIZE + 'px';
     D.fontSizeSlider.value = DEFAULT_FONT_SIZE;
+    D.fontSizeValue.textContent = `${DEFAULT_FONT_SIZE}px (predeterminado)`;
+    D.fontSizePreview.style.fontSize = DEFAULT_FONT_SIZE + 'px';
     localStorage.setItem('chatnica-font-size', DEFAULT_FONT_SIZE);
     showToast('Tamaño de texto restablecido');
   });
