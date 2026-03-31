@@ -364,7 +364,7 @@ function switchTab(tab) {
 }
 
 function applyFontSize(size) {
-  document.body.style.setProperty('--nica-font-size', size + 'px');
+  document.documentElement.style.fontSize = size + 'px';
   const label = size === DEFAULT_FONT_SIZE ? `${size}px (predeterminado)` : `${size}px`;
   if (D.fontSizeValue) D.fontSizeValue.textContent = label;
   if (D.fontSizePreview) D.fontSizePreview.style.fontSize = size + 'px';
@@ -2136,7 +2136,7 @@ onAuthStateChanged(auth, async user => {
 
   D.fontSizeSlider.addEventListener('input', () => {
     const size = parseInt(D.fontSizeSlider.value);
-    document.body.style.setProperty('--nica-font-size', size + 'px');
+    document.documentElement.style.setProperty('--nica-fs', size + 'px');
     const label = size === DEFAULT_FONT_SIZE ? `${size}px (predeterminado)` : `${size}px`;
     D.fontSizeValue.textContent = label;
     D.fontSizePreview.style.fontSize = size + 'px';
@@ -2144,7 +2144,7 @@ onAuthStateChanged(auth, async user => {
   });
 
   D.btnResetFont.addEventListener('click', () => {
-    document.body.style.setProperty('--nica-font-size', DEFAULT_FONT_SIZE + 'px');
+    document.documentElement.style.setProperty('--nica-fs', DEFAULT_FONT_SIZE + 'px');
     D.fontSizeSlider.value = DEFAULT_FONT_SIZE;
     D.fontSizeValue.textContent = `${DEFAULT_FONT_SIZE}px (predeterminado)`;
     D.fontSizePreview.style.fontSize = DEFAULT_FONT_SIZE + 'px';

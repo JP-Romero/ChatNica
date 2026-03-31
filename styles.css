@@ -6,20 +6,13 @@ ESTILOS — ChatNica v2 (Mensajería + Red Social)
 
 *, *::before, *::after { box-sizing: border-box; }
 
+html { font-size: var(--nica-fs, 16px) !important; }
+
 body {
   background: #F0F2F5;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-tap-highlight-color: transparent;
-  font-size: var(--nica-font-size, 16px);
 }
-
-/* Chat text scaling */
-.msg-text { font-size: calc(var(--nica-font-size, 16px) * 0.9); }
-.msg-time { font-size: calc(var(--nica-font-size, 16px) * 0.65); }
-.msg-tick { font-size: calc(var(--nica-font-size, 16px) * 0.65); }
-.msg-sender { font-size: calc(var(--nica-font-size, 16px) * 0.7); }
-.reply-ctx-name { font-size: calc(var(--nica-font-size, 16px) * 0.65); }
-.reply-ctx-text { font-size: calc(var(--nica-font-size, 16px) * 0.72); }
 
 button { cursor: pointer; }
 
