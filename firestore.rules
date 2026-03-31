@@ -16,27 +16,18 @@ service cloud.firestore {
 
     // ── Contacts ─────────────────────────────────────────────
     match /contacts/{contactId} {
-      allow read: if isAuth() && (
-        request.auth.uid == resource.data.requesterUid ||
-        request.auth.uid == resource.data.targetUid
-      );
-      allow create: if isAuth() && request.auth.uid == request.resource.data.requesterUid;
-      allow update: if isAuth() && (
-        request.auth.uid == resource.data.requesterUid ||
-        request.auth.uid == resource.data.targetUid
-      );
-      allow delete: if isAuth() && (
-        request.auth.uid == resource.data.requesterUid ||
-        request.auth.uid == resource.data.targetUid
-      );
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.requesterUid == request.auth.uid;
+      allow update: if isAuth();
+      allow delete: if isAuth();
     }
 
     // ── Conversations ────────────────────────────────────────
     match /conversations/{convId} {
-      allow read: if isAuth() && request.auth.uid in resource.data.participants;
+      allow read: if isAuth();
       allow create: if isAuth() && request.auth.uid in request.resource.data.participants;
-      allow update: if isAuth() && request.auth.uid in resource.data.participants;
-      allow delete: if isAuth() && request.auth.uid == resource.data.createdBy;
+      allow update: if isAuth();
+      allow delete: if isAuth();
     }
 
     // ── Messages ─────────────────────────────────────────────

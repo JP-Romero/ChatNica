@@ -49,7 +49,7 @@ const D = {
   loadingScreen: $('loading-screen'), authScreen: $('auth-screen'), mainScreen: $('main-screen'),
   loginView: $('login-view'), registerView: $('register-view'),
   loginEmail: $('login-email'), loginPassword: $('login-password'), loginBtn: $('login-btn'), loginError: $('login-error'),
-  btnGoogle: $('btn-google'), btnGuest: $('btn-guest'),
+  btnGoogle: $('btn-google'),
   showRegister: $('show-register'), showLogin: $('show-login'),
   regName: $('reg-name'), regEmail: $('reg-email'), regPassword: $('reg-password'),
   regBtn: $('reg-btn'), regError: $('reg-error'),
@@ -212,7 +212,6 @@ const setAuthBusy = (busy, which) => {
     google: [D.btnGoogle, busy ? 'Conectando…' : 'Continuar con Google'],
     login: [D.loginBtn, busy ? 'Entrando…' : 'Iniciar sesión'],
     reg: [D.regBtn, busy ? 'Creando…' : 'Crear cuenta'],
-    guest: [D.btnGuest, null],
   };
   const [el, label] = map[which] || [];
   if (!el) return;
@@ -233,12 +232,12 @@ const clearAuthErrors = () => {
 async function ensureProfile(user) {
   const pRef = doc(db, 'users', user.uid);
   const snap = await getDoc(pRef);
-  const name = user.displayName || user.email?.split('@')[0] || `Usuario_${user.uid.slice(0,5)}`;
+  const name = user.displayName || user.email?.split('@')[0] || 'Usuario';
   if (!snap.exists()) {
     const p = {
       displayName: name, email: user.email || null, photoURL: user.photoURL || null,
       color: getUserColor(user.uid), bio: '', city: '', department: '',
-      isAnonymous: user.isAnonymous, createdAt: serverTimestamp(), lastSeen: serverTimestamp()
+      createdAt: serverTimestamp(), lastSeen: serverTimestamp()
     };
     await setDoc(pRef, p);
     return { ...p, displayName: name };
@@ -274,12 +273,6 @@ const registerWithEmail = async () => {
     const { user } = await createUserWithEmailAndPassword(auth, em, pw);
     await updateProfile(user, { displayName: name });
   } catch (e) { showAuthError('reg', friendlyError(e)); setAuthBusy(false, 'reg'); }
-};
-
-const loginAsGuest = async () => {
-  setAuthBusy(true, 'guest');
-  try { await signInAnonymously(auth); }
-  catch (e) { showAuthError('login', friendlyError(e)); setAuthBusy(false, 'guest'); }
 };
 
 const logout = async () => {
@@ -410,30 +403,38 @@ function refreshOnlineIndicators() {
 function subscribeContacts() {
   S.unsubContacts?.();
   console.log('[ChatNica] Suscribiendo a contactos...');
-  const q = query(
-    collection(db, 'contacts'),
-    where('targetUid', '==', S.user.uid)
-  );
+  const q = query(collection(db, 'contacts'));
   S.unsubContacts = onSnapshot(q, snap => {
-    const incoming = [];
-    snap.forEach(d => incoming.push({ id: d.id, ...d.data() }));
-    console.log('[ChatNica] Contactos entrantes:', incoming.length);
-
-    const q2 = query(
-      collection(db, 'contacts'),
-      where('requesterUid', '==', S.user.uid)
-    );
-    getDocs(q2).then(snap2 => {
-      const outgoing = [];
-      snap2.forEach(d => outgoing.push({ id: d.id, ...d.data() }));
-      console.log('[ChatNica] Contactos salientes:', outgoing.length);
-      loadAllUsers().then(users => {
-        renderContacts(incoming, outgoing, users);
-      });
+    const allContacts = [];
+    snap.forEach(d => allContacts.push({ id: d.id, ...d.data() }));
+    const incoming = allContacts.filter(c => c.targetUid === S.user.uid);
+    const outgoing = allContacts.filter(c => c.requesterUid === S.user.uid);
+    console.log('[ChatNica] Contactos entrantes:', incoming.length, 'salientes:', outgoing.length);
+    Promise.all([loadAllUsers(), cleanupOrphanContacts(incoming, outgoing)]).then(([users]) => {
+      renderContacts(incoming, outgoing, users);
     });
   }, err => {
     console.error('[ChatNica] Error en contactos:', err);
   });
+}
+
+async function cleanupOrphanContacts(incoming, outgoing) {
+  const usersSnap = await getDocs(collection(db, 'users'));
+  const existingUids = new Set();
+  usersSnap.forEach(d => existingUids.add(d.id));
+
+  const allContacts = [...incoming, ...outgoing];
+  const orphanIds = [];
+  allContacts.forEach(c => {
+    if (!existingUids.has(c.requesterUid) || !existingUids.has(c.targetUid)) {
+      orphanIds.push(c.id);
+    }
+  });
+
+  for (const id of orphanIds) {
+    try { await deleteDoc(doc(db, 'contacts', id)); } catch (e) {}
+  }
+  if (orphanIds.length) console.log('[ChatNica] Contactos huérfanos eliminados:', orphanIds.length);
 }
 
 async function loadAllUsers() {
@@ -458,13 +459,24 @@ function getContactStatus(uid, incoming, outgoing) {
 }
 
 function renderContacts(incoming, outgoing, allUsers) {
-  const pending = incoming.filter(c => c.status === 'pending');
-  const accepted = incoming.filter(c => c.status === 'accepted');
-  const acceptedUids = new Set(accepted.map(c => c.requesterUid));
-  const pendingUids = new Set();
-  incoming.filter(c => c.status === 'pending').forEach(c => pendingUids.add(c.requesterUid));
-  outgoing.filter(c => c.status === 'pending').forEach(c => pendingUids.add(c.targetUid));
-  outgoing.filter(c => c.status === 'accepted').forEach(c => acceptedUids.add(c.targetUid));
+  const userMap = {};
+  allUsers.forEach(u => { userMap[u.uid] = u; });
+
+  const enrichedIncoming = incoming.map(c => ({
+    ...c,
+    otherUid: c.requesterUid === S.user.uid ? c.targetUid : c.requesterUid,
+    ...userMap[c.requesterUid === S.user.uid ? c.targetUid : c.requesterUid]
+  }));
+
+  const enrichedOutgoing = outgoing.map(c => ({
+    ...c,
+    otherUid: c.requesterUid === S.user.uid ? c.targetUid : c.requesterUid,
+    ...userMap[c.requesterUid === S.user.uid ? c.targetUid : c.requesterUid]
+  }));
+
+  const pending = enrichedIncoming.filter(c => c.status === 'pending');
+  const accepted = enrichedIncoming.filter(c => c.status === 'accepted');
+  const acceptedUids = new Set(accepted.map(c => c.otherUid));
 
   D.contactsPendingSection.classList.toggle('hidden', !pending.length);
   if (pending.length) {
@@ -492,14 +504,14 @@ function renderContacts(incoming, outgoing, allUsers) {
 }
 
 function contactItemHTML(c, type) {
-  const otherUid = c.requesterUid === S.user.uid ? c.targetUid : c.requesterUid;
-  const color = c.otherColor || getUserColor(otherUid);
-  const name = esc(c.otherName || 'Usuario');
-  const city = c.otherCity ? esc(c.otherCity) : '';
+  const otherUid = c.otherUid || (c.requesterUid === S.user.uid ? c.targetUid : c.requesterUid);
+  const color = c.color || getUserColor(otherUid);
+  const name = esc(c.displayName || 'Usuario');
+  const city = c.city ? esc(c.city) : '';
 
-  const avatarInner = c.otherPhotoURL
-    ? `<img src="${esc(c.otherPhotoURL)}" alt="">`
-    : getInitials(c.otherName || 'U');
+  const avatarInner = c.photoURL
+    ? `<img src="${esc(c.photoURL)}" alt="">`
+    : getInitials(c.displayName || 'U');
 
   const online = isOnline(otherUid);
   const onlineDot = `<div class="online-dot${online ? '' : ' hidden'}" data-uid="${otherUid}"></div>`;
@@ -624,12 +636,18 @@ async function searchUsers(queryStr) {
 }
 
 async function getAcceptedContacts() {
-  const q1 = query(collection(db, 'contacts'), where('requesterUid', '==', S.user.uid), where('status', '==', 'accepted'));
-  const q2 = query(collection(db, 'contacts'), where('targetUid', '==', S.user.uid), where('status', '==', 'accepted'));
-  const [s1, s2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+  const snap = await getDocs(collection(db, 'contacts'));
   const contacts = [];
-  s1.forEach(d => { const data = d.data(); contacts.push({ uid: data.targetUid, ...data }); });
-  s2.forEach(d => { const data = d.data(); contacts.push({ uid: data.requesterUid, ...data }); });
+  snap.forEach(d => {
+    const data = d.data();
+    if (data.status === 'accepted') {
+      if (data.requesterUid === S.user.uid) {
+        contacts.push({ uid: data.targetUid, ...data });
+      } else if (data.targetUid === S.user.uid) {
+        contacts.push({ uid: data.requesterUid, ...data });
+      }
+    }
+  });
   return contacts;
 }
 
@@ -638,13 +656,15 @@ async function getAcceptedContacts() {
 // ─────────────────────────────────────────────
 function subscribeConversations() {
   S.unsubConvs?.();
-  const q = query(
-    collection(db, 'conversations'),
-    where('participants', 'array-contains', S.user.uid)
-  );
+  const q = query(collection(db, 'conversations'));
   S.unsubConvs = onSnapshot(q, snap => {
     const convs = [];
-    snap.forEach(d => convs.push({ id: d.id, ...d.data() }));
+    snap.forEach(d => {
+      const data = d.data();
+      if (data.participants?.includes(S.user.uid)) {
+        convs.push({ id: d.id, ...data });
+      }
+    });
     convs.sort((a, b) => {
       const ta = a.lastMessageTime?.toMillis?.() || 0;
       const tb = b.lastMessageTime?.toMillis?.() || 0;
@@ -801,6 +821,7 @@ function closeChat() {
   S.unsubTyping = null;
   D.chatView.classList.add('hidden');
   D.bottomNav.classList.remove('hidden');
+  D.chatInfoPanel.classList.add('hidden');
 }
 
 // ─────────────────────────────────────────────
@@ -1775,7 +1796,6 @@ onAuthStateChanged(auth, async user => {
   D.btnGoogle.addEventListener('click', loginWithGoogle);
   D.loginBtn.addEventListener('click', loginWithEmail);
   D.regBtn.addEventListener('click', registerWithEmail);
-  D.btnGuest.addEventListener('click', loginAsGuest);
   D.btnLogout.addEventListener('click', logout);
   D.showRegister.addEventListener('click', () => showAuthView('register'));
   D.showLogin.addEventListener('click', () => showAuthView('login'));
