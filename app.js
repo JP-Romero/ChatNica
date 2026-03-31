@@ -816,6 +816,12 @@ async function openChat(convId, convData) {
   loadMessages();
   subscribeTyping();
   updatePresence();
+
+  D.chatMessages.onclick = (e) => {
+    if (!e.target.closest('.msg-wrapper')) {
+      document.querySelectorAll('.msg-wrapper.show-actions').forEach(w => w.classList.remove('show-actions'));
+    }
+  };
 }
 
 function updateChatHeaderStatus() {
@@ -853,25 +859,16 @@ function loadMessages() {
   D.chatMessages.appendChild(D.emptyChat);
   D.emptyChat.classList.remove('hidden');
 
-  const q = query(collection(db, 'messages'));
+  // Optimización: Filtrar directamente en el servidor de Firebase y limitar resultados
+  const q = query(
+    collection(db, 'messages'),
+    where('conversationId', '==', S.currentConv.id),
+    orderBy('timestamp', 'asc'),
+    limit(MSG_LIMIT)
+  );
+
   S.unsubMsgs = onSnapshot(q, snap => {
-    const allDocs = [];
-    snap.forEach(d => {
-      const data = d.data();
-      console.log('[ChatNica] Mensaje leído:', d.id, 'convId:', data.conversationId, 'text:', data.text?.substring(0, 30));
-      if (data.conversationId === S.currentConv.id) {
-        allDocs.push(d);
-      }
-    });
-    allDocs.sort((a, b) => {
-      const ta = a.data().timestamp?.toMillis?.() || 0;
-      const tb = b.data().timestamp?.toMillis?.() || 0;
-      return ta - tb;
-    });
-
-    console.log('[ChatNica] Mensajes filtrados para esta conv:', allDocs.length);
-
-    const hasMessages = allDocs.length > 0;
+    const hasMessages = !snap.empty;
     D.emptyChat.classList.toggle('hidden', hasMessages);
 
     if (!hasMessages) {
@@ -883,14 +880,14 @@ function loadMessages() {
 
     D.chatMessages.innerHTML = '';
     S.msgEls.clear();
-    allDocs.forEach(d => {
+    snap.forEach(d => {
       const el = buildMsgEl(d);
       D.chatMessages.appendChild(el);
       S.msgEls.set(d.id, el);
     });
     scrollBottom();
 
-    markMessagesDelivered(allDocs);
+    markMessagesDelivered(snap.docs);
     updateTicksVisual();
   }, err => {
     console.error('[ChatNica] Error cargando mensajes:', err);
@@ -935,8 +932,10 @@ function buildMsgEl(msgDoc) {
 
   const senderHTML = (!isOwn && isGroup) ? `<div class="msg-sender" style="color:${color}">${esc(d.user || 'Usuario')}</div>` : '';
 
-  const bubbleHTML = `
+  wrap.innerHTML = `
+    ${avatarHTML}
     <div class="msg-bubble">
+      ${actBtns}
       ${replyHTML}
       ${senderHTML}
       ${imgHTML}
@@ -949,16 +948,17 @@ function buildMsgEl(msgDoc) {
       ${reactHTML}
     </div>`;
 
-  wrap.innerHTML = isOwn 
-    ? `${actBtns}${bubbleHTML}` 
-    : `${avatarHTML}${bubbleHTML}${actBtns}`;
-
   wrap.querySelectorAll('img[data-fullurl]').forEach(img => {
     img.addEventListener('click', () => window.open(img.dataset.fullurl, '_blank', 'noopener,noreferrer'));
   });
 
   let pt;
-  wrap.addEventListener('touchstart', () => { pt = setTimeout(() => showPickerFor(id, wrap), 500); }, { passive: true });
+  wrap.addEventListener('touchstart', (e) => {
+    const target = e.target.closest('.msg-wrapper');
+    document.querySelectorAll('.msg-wrapper.show-actions').forEach(w => w.classList.remove('show-actions'));
+    if (target) target.classList.add('show-actions');
+    pt = setTimeout(() => showPickerFor(id, wrap), 500);
+  }, { passive: true });
   wrap.addEventListener('touchend', () => clearTimeout(pt), { passive: true });
 
   return wrap;

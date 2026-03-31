@@ -1,5 +1,5 @@
 // Service Worker para PWA — Network-first para archivos dinámicos
-const CACHE_NAME = 'chatnica-v4';
+const CACHE_NAME = 'chatnica-v5';
 const DYNAMIC_FILES = ['/', '/index.html', '/app.js', '/styles.css', '/firebase-config.js'];
 
 self.addEventListener('install', e => {
@@ -15,21 +15,26 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  // La API de Cache solo soporta peticiones GET.
+  // Firebase usa POST para enviar mensajes y autenticar, lo que causaba el error de "unsupported method".
+  if (e.request.method !== 'GET') return;
+
+  // Evitar cachear llamadas a las APIs de Google/Firebase para evitar conflictos
+  if (e.request.url.includes('googleapis.com')) return;
+
   const url = new URL(e.request.url);
   const path = url.pathname;
 
-  // Network-first para archivos de la app
+  // Cache-first para archivos de la app (Carga instantánea)
   if (DYNAMIC_FILES.includes(path) || path.endsWith('.js') || path.endsWith('.css') || path.endsWith('.html')) {
     e.respondWith(
-      fetch(e.request)
-        .then(response => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
-          }
+      caches.match(e.request).then(cached => {
+        const networkFetch = fetch(e.request).then(response => {
+          if (response.ok) caches.open(CACHE_NAME).then(cache => cache.put(e.request, response.clone()));
           return response;
-        })
-        .catch(() => caches.match(e.request))
+        });
+        return cached || networkFetch;
+      })
     );
     return;
   }
