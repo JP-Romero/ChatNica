@@ -841,6 +841,7 @@ function closeChat() {
 // ─────────────────────────────────────────────
 function loadMessages() {
   if (!S.currentConv) return;
+  console.log('[ChatNica] Cargando mensajes para conv:', S.currentConv.id, 'type:', S.currentConv.type);
   S.msgEls.clear();
   D.chatMessages.innerHTML = '';
   D.chatMessages.appendChild(D.emptyChat);
@@ -851,6 +852,7 @@ function loadMessages() {
     const allDocs = [];
     snap.forEach(d => {
       const data = d.data();
+      console.log('[ChatNica] Mensaje leído:', d.id, 'convId:', data.conversationId, 'text:', data.text?.substring(0, 30));
       if (data.conversationId === S.currentConv.id) {
         allDocs.push(d);
       }
@@ -861,7 +863,7 @@ function loadMessages() {
       return ta - tb;
     });
 
-    console.log('[ChatNica] Mensajes en conversación:', allDocs.length);
+    console.log('[ChatNica] Mensajes filtrados para esta conv:', allDocs.length);
 
     const hasMessages = allDocs.length > 0;
     D.emptyChat.classList.toggle('hidden', hasMessages);
@@ -881,6 +883,8 @@ function loadMessages() {
       S.msgEls.set(d.id, el);
     });
     scrollBottom();
+  }, err => {
+    console.error('[ChatNica] Error cargando mensajes:', err);
   });
 }
 
@@ -998,7 +1002,9 @@ async function sendMessage() {
       replyTo: S.replyTo || null
     };
 
-    await addDoc(collection(db, 'messages'), msg);
+    console.log('[ChatNica] Enviando mensaje:', JSON.stringify(msg, null, 2));
+    const docRef = await addDoc(collection(db, 'messages'), msg);
+    console.log('[ChatNica] Mensaje guardado con ID:', docRef.id);
 
     await updateDoc(doc(db, 'conversations', S.currentConv.id), {
       lastMessage: text || '📷 Imagen',
