@@ -621,7 +621,7 @@ async function rejectContact(contactId) {
 
 async function searchUsers(queryStr) {
   if (!queryStr || queryStr.length < 2) return [];
-  const q = query(collection(db, 'users'), orderBy('displayName'));
+  const q = query(collection(db, 'users'));
   const snap = await getDocs(q);
   const results = [];
   const lower = queryStr.toLowerCase();
@@ -637,17 +637,29 @@ async function searchUsers(queryStr) {
 
 async function getAcceptedContacts() {
   const snap = await getDocs(collection(db, 'contacts'));
+  const userCache = {};
   const contacts = [];
   snap.forEach(d => {
     const data = d.data();
     if (data.status === 'accepted') {
+      let otherUid;
       if (data.requesterUid === S.user.uid) {
-        contacts.push({ uid: data.targetUid, ...data });
+        otherUid = data.targetUid;
       } else if (data.targetUid === S.user.uid) {
-        contacts.push({ uid: data.requesterUid, ...data });
+        otherUid = data.requesterUid;
+      }
+      if (otherUid) {
+        contacts.push({ uid: otherUid, contactId: d.id, ...data });
       }
     }
   });
+  for (const c of contacts) {
+    if (!userCache[c.uid]) {
+      const uSnap = await getDoc(doc(db, 'users', c.uid));
+      userCache[c.uid] = uSnap.exists() ? uSnap.data() : {};
+    }
+    Object.assign(c, userCache[c.uid]);
+  }
   return contacts;
 }
 
@@ -832,14 +844,26 @@ function loadMessages() {
   const q = query(
     collection(db, 'messages'),
     where('conversationId', '==', S.currentConv.id),
-    orderBy('timestamp', 'asc'),
     limit(MSG_LIMIT)
   );
   S.unsubMsgs = onSnapshot(q, snap => {
-    if (S.msgEls.size === 0 && !snap.empty) {
+    const docs = [];
+    snap.forEach(d => docs.push(d));
+    docs.sort((a, b) => {
+      const ta = a.data().timestamp?.toMillis?.() || 0;
+      const tb = b.data().timestamp?.toMillis?.() || 0;
+      return ta - tb;
+    });
+    if (S.msgEls.size === 0 && !docs.length) {
+      D.chatMessages.innerHTML = '';
+      D.chatMessages.appendChild(D.emptyChat);
+      D.emptyChat.classList.remove('hidden');
+      return;
+    }
+    if (S.msgEls.size === 0 && docs.length) {
       D.chatMessages.innerHTML = '';
       D.emptyChat.classList.add('hidden');
-      snap.forEach(d => {
+      docs.forEach(d => {
         const el = buildMsgEl(d);
         D.chatMessages.appendChild(el);
         S.msgEls.set(d.id, el);
@@ -1514,10 +1538,13 @@ async function createStory(type, content) {
 
 async function viewStoriesForUser(uid) {
   const expiresAt = Timestamp.fromMillis(Date.now());
-  const q = query(collection(db, 'stories'), where('uid', '==', uid), where('expiresAt', '>', expiresAt));
+  const q = query(collection(db, 'stories'), where('expiresAt', '>', expiresAt));
   const snap = await getDocs(q);
   const stories = [];
-  snap.forEach(d => stories.push({ id: d.id, ...d.data() }));
+  snap.forEach(d => {
+    const data = d.data();
+    if (data.uid === uid) stories.push({ id: d.id, ...data });
+  });
   if (!stories.length) return;
 
   const story = stories[0];
@@ -1635,11 +1662,11 @@ async function openSelectContactModal() {
     D.selectContactList.innerHTML = '<p class="text-center text-nica-muted py-8 text-sm">No tienes contactos aún. Ve a la pestaña Contactos para agregar personas.</p>';
   } else {
     D.selectContactList.innerHTML = contacts.map(c => {
-      const color = c.otherColor || getUserColor(c.uid);
-      const name = esc(c.otherName || 'Usuario');
-      const avatarInner = c.otherPhotoURL
-        ? `<img src="${esc(c.otherPhotoURL)}" alt="" class="w-full h-full object-cover">`
-        : getInitials(c.otherName || 'U');
+      const color = c.color || getUserColor(c.uid);
+      const name = esc(c.displayName || 'Usuario');
+      const avatarInner = c.photoURL
+        ? `<img src="${esc(c.photoURL)}" alt="" class="w-full h-full object-cover">`
+        : getInitials(c.displayName || 'U');
       return `
         <div class="group-member-select" data-uid="${c.uid}">
           <div class="contact-avatar" style="background:${color};width:36px;height:36px">
@@ -1659,11 +1686,11 @@ async function openCreateGroupModal() {
     D.groupMembersSelect.innerHTML = '<p class="text-center text-nica-muted py-4 text-sm">Necesitas contactos para crear un grupo.</p>';
   } else {
     D.groupMembersSelect.innerHTML = contacts.map(c => {
-      const color = c.otherColor || getUserColor(c.uid);
-      const name = esc(c.otherName || 'Usuario');
-      const avatarInner = c.otherPhotoURL
-        ? `<img src="${esc(c.otherPhotoURL)}" alt="" class="w-full h-full object-cover">`
-        : getInitials(c.otherName || 'U');
+      const color = c.color || getUserColor(c.uid);
+      const name = esc(c.displayName || 'Usuario');
+      const avatarInner = c.photoURL
+        ? `<img src="${esc(c.photoURL)}" alt="" class="w-full h-full object-cover">`
+        : getInitials(c.displayName || 'U');
       return `
         <label class="group-member-select">
           <input type="checkbox" value="${c.uid}" class="group-member-checkbox">
