@@ -332,7 +332,8 @@ button { cursor: pointer; }
 .msg-wrapper {
   display: flex;
   gap: 6px;
-  padding: 2px 0;
+  padding: 2px 12px;
+  align-items: center;
 }
 .msg-wrapper.own { justify-content: flex-end; }
 .msg-wrapper.other { justify-content: flex-start; }
@@ -423,10 +424,11 @@ button { cursor: pointer; }
   display: flex;
   gap: 4px;
   opacity: 0;
+  visibility: hidden;
   transition: opacity 0.15s;
   align-self: center;
 }
-.msg-wrapper:hover .msg-actions { opacity: 1; }
+.msg-wrapper:hover .msg-actions { opacity: 1; visibility: visible; }
 
 .msg-act-btn {
   width: 28px;

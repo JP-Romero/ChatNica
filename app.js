@@ -935,8 +935,7 @@ function buildMsgEl(msgDoc) {
 
   const senderHTML = (!isOwn && isGroup) ? `<div class="msg-sender" style="color:${color}">${esc(d.user || 'Usuario')}</div>` : '';
 
-  wrap.innerHTML = `
-    ${avatarHTML}
+  const bubbleHTML = `
     <div class="msg-bubble">
       ${replyHTML}
       ${senderHTML}
@@ -948,8 +947,11 @@ function buildMsgEl(msgDoc) {
         ${tickHTML}
       </div>
       ${reactHTML}
-    </div>
-    ${actBtns}`;
+    </div>`;
+
+  wrap.innerHTML = isOwn 
+    ? `${actBtns}${bubbleHTML}` 
+    : `${avatarHTML}${bubbleHTML}${actBtns}`;
 
   wrap.querySelectorAll('img[data-fullurl]').forEach(img => {
     img.addEventListener('click', () => window.open(img.dataset.fullurl, '_blank', 'noopener,noreferrer'));
