@@ -364,7 +364,50 @@ function switchTab(tab) {
 }
 
 function applyFontSize(size) {
-  document.documentElement.style.fontSize = size + 'px';
+  const scale = size / 16;
+  const map = {
+    '.msg-text': 0.9,
+    '.msg-time': 0.65,
+    '.msg-tick': 0.65,
+    '.msg-sender': 0.7,
+    '.reply-ctx-name': 0.65,
+    '.reply-ctx-text': 0.72,
+    '.react-chip': 0.72,
+    '.conv-name': 0.95,
+    '.conv-last-msg': 0.8,
+    '.conv-time': 0.7,
+    '.conv-unread': 0.65,
+    '.contact-name': 0.9,
+    '.contact-city': 0.75,
+    '.contact-btn': 0.75,
+    '.post-text': 0.9,
+    '.post-name': 0.85,
+    '.post-time-label': 0.7,
+    '.post-comment-text': 0.8,
+    '.post-comment-name': 0.7,
+    '.post-action-btn': 0.8,
+    '.story-name': 0.65,
+    '.header-title': 1.125,
+    '.header-subtitle': 0.625,
+    '.profile-name': 1.25,
+    '.profile-email': 0.875,
+    '.profile-bio': 0.875,
+    '.profile-city': 0.75,
+    '.profile-menu-item': 0.9,
+    '.nav-tab span': 0.625,
+    '.auth-input': 0.9,
+    '.auth-link': 0.8,
+    '.auth-error': 0.8,
+    '.modal-option-btn': 0.9,
+    '.toast': 0.82,
+    '.typing-dots': 0.75,
+  };
+  Object.entries(map).forEach(([sel, baseRem]) => {
+    document.querySelectorAll(sel).forEach(el => {
+      el.style.fontSize = (baseRem * scale) + 'rem';
+    });
+  });
+  document.body.style.fontSize = size + 'px';
   const label = size === DEFAULT_FONT_SIZE ? `${size}px (predeterminado)` : `${size}px`;
   if (D.fontSizeValue) D.fontSizeValue.textContent = label;
   if (D.fontSizePreview) D.fontSizePreview.style.fontSize = size + 'px';
@@ -2136,18 +2179,13 @@ onAuthStateChanged(auth, async user => {
 
   D.fontSizeSlider.addEventListener('input', () => {
     const size = parseInt(D.fontSizeSlider.value);
-    document.documentElement.style.setProperty('--nica-fs', size + 'px');
-    const label = size === DEFAULT_FONT_SIZE ? `${size}px (predeterminado)` : `${size}px`;
-    D.fontSizeValue.textContent = label;
-    D.fontSizePreview.style.fontSize = size + 'px';
+    applyFontSize(size);
     localStorage.setItem('chatnica-font-size', size);
   });
 
   D.btnResetFont.addEventListener('click', () => {
-    document.documentElement.style.setProperty('--nica-fs', DEFAULT_FONT_SIZE + 'px');
+    applyFontSize(DEFAULT_FONT_SIZE);
     D.fontSizeSlider.value = DEFAULT_FONT_SIZE;
-    D.fontSizeValue.textContent = `${DEFAULT_FONT_SIZE}px (predeterminado)`;
-    D.fontSizePreview.style.fontSize = DEFAULT_FONT_SIZE + 'px';
     localStorage.setItem('chatnica-font-size', DEFAULT_FONT_SIZE);
     showToast('Tamaño de texto restablecido');
   });
