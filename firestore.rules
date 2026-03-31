@@ -3,45 +3,75 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAuth()      { return request.auth != null; }
-    function isOwner(uid)  { return request.auth.uid == uid; }
-    function onlyReactions() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']);
-    }
+    function isAuth() { return request.auth != null; }
+    function isOwner(uid) { return request.auth.uid == uid; }
 
-    // ── Mensajes ────────────────────────────────────────────
-    match /messages/{msgId} {
-      allow read: if isAuth();
-
-      allow create: if isAuth()
-        && request.resource.data.uid == request.auth.uid
-        && (request.resource.data.text == null
-            || request.resource.data.text.size() <= 2000);
-
-      // Solo se permite modificar el campo "reactions"
-      allow update: if isAuth() && onlyReactions();
-
-      allow delete: if false;
-    }
-
-    // ── Perfiles de usuario ──────────────────────────────────
+    // ── Users ────────────────────────────────────────────────
     match /users/{uid} {
-      allow read:   if isAuth();
+      allow read: if isAuth();
       allow create: if isAuth() && isOwner(uid);
       allow update: if isAuth() && isOwner(uid);
       allow delete: if false;
     }
 
-    // ── Presencia ────────────────────────────────────────────
+    // ── Contacts ─────────────────────────────────────────────
+    match /contacts/{contactId} {
+      allow read: if isAuth() && (
+        request.auth.uid == resource.data.requesterUid ||
+        request.auth.uid == resource.data.targetUid
+      );
+      allow create: if isAuth() && request.auth.uid == request.resource.data.requesterUid;
+      allow update: if isAuth() && (
+        request.auth.uid == resource.data.requesterUid ||
+        request.auth.uid == resource.data.targetUid
+      );
+      allow delete: if isAuth() && (
+        request.auth.uid == resource.data.requesterUid ||
+        request.auth.uid == resource.data.targetUid
+      );
+    }
+
+    // ── Conversations ────────────────────────────────────────
+    match /conversations/{convId} {
+      allow read: if isAuth() && request.auth.uid in resource.data.participants;
+      allow create: if isAuth() && request.auth.uid in request.resource.data.participants;
+      allow update: if isAuth() && request.auth.uid in resource.data.participants;
+      allow delete: if isAuth() && request.auth.uid == resource.data.createdBy;
+    }
+
+    // ── Messages ─────────────────────────────────────────────
+    match /messages/{msgId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow update: if isAuth();
+      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
+    }
+
+    // ── Posts ────────────────────────────────────────────────
+    match /posts/{postId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow update: if isAuth();
+      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
+    }
+
+    // ── Stories ──────────────────────────────────────────────
+    match /stories/{storyId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow update: if isAuth() && resource.data.uid == request.auth.uid;
+      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
+    }
+
+    // ── Presence ─────────────────────────────────────────────
     match /presence/{uid} {
-      allow read:  if isAuth();
+      allow read: if isAuth();
       allow write: if isAuth() && isOwner(uid);
     }
 
-    // ── Indicadores de escritura ─────────────────────────────
-    match /typing/{channel} {
-      allow read:  if isAuth();
-      // Cualquier usuario autenticado puede actualizar su propio campo
+    // ── Typing ───────────────────────────────────────────────
+    match /typing/{convId} {
+      allow read: if isAuth();
       allow write: if isAuth();
     }
   }
