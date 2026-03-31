@@ -841,11 +841,12 @@ function closeChat() {
 // ─────────────────────────────────────────────
 function loadMessages() {
   if (!S.currentConv) return;
-  const q = query(
-    collection(db, 'messages'),
-    where('conversationId', '==', S.currentConv.id),
-    limit(MSG_LIMIT)
-  );
+  S.msgEls.clear();
+  D.chatMessages.innerHTML = '';
+  D.chatMessages.appendChild(D.emptyChat);
+  D.emptyChat.classList.remove('hidden');
+
+  const q = query(collection(db, 'messages'), where('conversationId', '==', S.currentConv.id));
   S.unsubMsgs = onSnapshot(q, snap => {
     const docs = [];
     snap.forEach(d => docs.push(d));
@@ -854,40 +855,25 @@ function loadMessages() {
       const tb = b.data().timestamp?.toMillis?.() || 0;
       return ta - tb;
     });
-    if (S.msgEls.size === 0 && !docs.length) {
+
+    const hasMessages = docs.length > 0;
+    D.emptyChat.classList.toggle('hidden', hasMessages);
+
+    if (!hasMessages) {
       D.chatMessages.innerHTML = '';
       D.chatMessages.appendChild(D.emptyChat);
       D.emptyChat.classList.remove('hidden');
       return;
     }
-    if (S.msgEls.size === 0 && docs.length) {
-      D.chatMessages.innerHTML = '';
-      D.emptyChat.classList.add('hidden');
-      docs.forEach(d => {
-        const el = buildMsgEl(d);
-        D.chatMessages.appendChild(el);
-        S.msgEls.set(d.id, el);
-      });
-      scrollBottom();
-      return;
-    }
-    snap.docChanges().forEach(change => {
-      if (change.type === 'added') {
-        if (S.msgEls.has(change.doc.id)) return;
-        D.emptyChat?.classList.add('hidden');
-        const el = buildMsgEl(change.doc);
-        D.chatMessages.appendChild(el);
-        S.msgEls.set(change.doc.id, el);
-        if (change.doc.data().uid === S.user.uid || isNearBottom()) scrollBottom();
-      } else if (change.type === 'modified') {
-        const old = S.msgEls.get(change.doc.id);
-        if (old) {
-          const fresh = buildMsgEl(change.doc);
-          old.replaceWith(fresh);
-          S.msgEls.set(change.doc.id, fresh);
-        }
-      }
+
+    D.chatMessages.innerHTML = '';
+    S.msgEls.clear();
+    docs.forEach(d => {
+      const el = buildMsgEl(d);
+      D.chatMessages.appendChild(el);
+      S.msgEls.set(d.id, el);
     });
+    scrollBottom();
   });
 }
 
