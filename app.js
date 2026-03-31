@@ -801,7 +801,7 @@ async function openChat(convId, convData) {
   D.chatHeaderAvatar.style.background = avatarBg;
 
   D.chatView.classList.remove('hidden');
-  D.bottomNav.classList.add('hidden');
+  if (D.bottomNav) D.bottomNav.classList.add('hidden');
 
   D.chatMessages.innerHTML = '';
   D.chatMessages.appendChild(D.emptyChat);

@@ -8,5 +8,11 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+  e.respondWith(
+    fetch(e.request).catch(() => {
+      return new Response('Offline', {
+        headers: { 'Content-Type': 'text/plain' }
+      });
+    })
+  );
 });
