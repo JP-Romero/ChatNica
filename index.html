@@ -205,6 +205,13 @@
             <span>Mis estados</span>
           </button>
         </div>
+
+        <div class="mt-4 bg-nica-surface rounded-2xl shadow-sm overflow-hidden">
+          <button id="btn-app-settings" class="profile-menu-item">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span>Ajustes de la app</span>
+          </button>
+        </div>
       </div>
     </div>
   </main>
@@ -461,6 +468,36 @@
       <button class="modal-close text-white/80 hover:text-white text-xl">✕</button>
     </div>
     <div id="select-contact-list" class="max-h-64 overflow-y-auto p-2"></div>
+  </div>
+</div>
+
+<!-- App Settings Modal -->
+<div id="modal-app-settings" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+  <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
+    <div class="bg-nica-primary p-4 flex justify-between items-center text-white">
+      <h3 class="font-bold">Ajustes de la app</h3>
+      <button class="modal-close text-white/80 hover:text-white text-xl">✕</button>
+    </div>
+    <div class="p-4 space-y-5">
+      <div>
+        <label class="text-sm font-semibold text-nica-text mb-2 block">Tamaño del texto</label>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-nica-muted">A</span>
+          <input id="font-size-slider" type="range" min="12" max="22" value="16" class="flex-1 accent-nica-primary">
+          <span class="text-lg text-nica-muted">A</span>
+        </div>
+        <p id="font-size-value" class="text-xs text-nica-muted mt-1 text-center">16px (predeterminado)</p>
+      </div>
+      <div>
+        <label class="text-sm font-semibold text-nica-text mb-2 block">Vista previa</label>
+        <div id="font-size-preview" class="bg-nica-bg rounded-xl p-3 text-nica-text">
+          Este es un ejemplo de cómo se ve el texto con el tamaño seleccionado.
+        </div>
+      </div>
+      <button id="btn-reset-font" class="text-sm text-nica-primary font-medium w-full py-2 rounded-lg hover:bg-nica-bg transition-colors">
+        Restablecer tamaño predeterminado
+      </button>
+    </div>
   </div>
 </div>
 

@@ -96,6 +96,12 @@ const D = {
   selectContactList: $('select-contact-list'),
   reactionPopover: $('reaction-popover'),
   toast: $('toast'), toastMessage: $('toast-message'),
+  btnAppSettings: $('btn-app-settings'),
+  modalAppSettings: $('modal-app-settings'),
+  fontSizeSlider: $('font-size-slider'),
+  fontSizeValue: $('font-size-value'),
+  fontSizePreview: $('font-size-preview'),
+  btnResetFont: $('btn-reset-font'),
 };
 
 // ─────────────────────────────────────────────
@@ -354,6 +360,13 @@ function switchTab(tab) {
   else if (tab === 'contacts') subscribeContacts();
   else if (tab === 'feed') subscribeFeed();
   else if (tab === 'profile') updateProfileTab();
+}
+
+function applyFontSize(size) {
+  document.documentElement.style.fontSize = size + 'px';
+  const label = size === DEFAULT_FONT_SIZE ? `${size}px (predeterminado)` : `${size}px`;
+  D.fontSizeValue.textContent = label;
+  D.fontSizePreview.style.fontSize = size + 'px';
 }
 
 // ─────────────────────────────────────────────
@@ -1575,41 +1588,68 @@ async function viewStoriesForUser(uid) {
   const stories = [];
   snap.forEach(d => {
     const data = d.data();
-    if (data.uid === uid) stories.push({ id: d.id, ...data });
+    if (data.uid === uid) stories.push({ id: d.id, ...d.data() });
   });
   if (!stories.length) return;
 
-  const story = stories[0];
-  D.viewStoryName.textContent = story.userName || 'Usuario';
-  D.viewStoryTime.textContent = fmtTimeAgo(story.timestamp);
+  let currentIndex = 0;
 
-  const avatarInner = story.userPhotoURL
-    ? `<img src="${esc(story.userPhotoURL)}" alt="">`
-    : getInitials(story.userName || 'U');
-  D.viewStoryAvatar.innerHTML = `<div class="w-full h-full rounded-full" style="background:${story.color || getUserColor(uid)}">${avatarInner}</div>`;
+  function renderStory(idx) {
+    const story = stories[idx];
+    D.viewStoryName.textContent = story.userName || 'Usuario';
+    D.viewStoryTime.textContent = fmtTimeAgo(story.timestamp);
 
-  if (story.type === 'image') {
-    D.viewStoryContent.innerHTML = `<img src="${esc(story.image)}" alt="estado">`;
-  } else {
-    D.viewStoryContent.innerHTML = `<div class="story-text-content">${esc(story.text)}</div>`;
-  }
+    const avatarInner = story.userPhotoURL
+      ? `<img src="${esc(story.userPhotoURL)}" alt="">`
+      : getInitials(story.userName || 'U');
+    D.viewStoryAvatar.innerHTML = `<div class="w-full h-full rounded-full" style="background:${story.color || getUserColor(uid)}">${avatarInner}</div>`;
 
-  if (story.uid === S.user.uid) {
-    D.viewStoryDelete.classList.remove('hidden');
-    D.viewStoryDelete.onclick = async () => {
-      if (!confirm('¿Borrar este estado?')) return;
-      await deleteDoc(doc(db, 'stories', story.id));
-      D.modalViewStory.classList.add('hidden');
-      showToast('Estado eliminado');
-    };
-  } else {
-    D.viewStoryDelete.classList.add('hidden');
-    if (!story.views?.includes(S.user.uid)) {
-      updateDoc(doc(db, 'stories', story.id), { views: arrayUnion(S.user.uid) }).catch(() => {});
+    if (story.type === 'image') {
+      D.viewStoryContent.innerHTML = `<img src="${esc(story.image)}" alt="estado">`;
+    } else {
+      D.viewStoryContent.innerHTML = `<div class="story-text-content">${esc(story.text)}</div>`;
     }
+
+    if (story.uid === S.user.uid) {
+      D.viewStoryDelete.classList.remove('hidden');
+      D.viewStoryDelete.onclick = async () => {
+        if (!confirm('¿Borrar este estado?')) return;
+        await deleteDoc(doc(db, 'stories', story.id));
+        stories.splice(idx, 1);
+        if (stories.length === 0) {
+          D.modalViewStory.classList.add('hidden');
+          showToast('Estado eliminado');
+        } else {
+          if (currentIndex >= stories.length) currentIndex = stories.length - 1;
+          renderStory(currentIndex);
+        }
+      };
+    } else {
+      D.viewStoryDelete.classList.add('hidden');
+      if (!story.views?.includes(S.user.uid)) {
+        updateDoc(doc(db, 'stories', story.id), { views: arrayUnion(S.user.uid) }).catch(() => {});
+      }
+    }
+
+    D.modalViewStory.classList.remove('hidden');
   }
 
-  D.modalViewStory.classList.remove('hidden');
+  renderStory(0);
+
+  D.viewStoryContent.onclick = (e) => {
+    const rect = D.viewStoryContent.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const mid = rect.width / 2;
+    if (x < mid && currentIndex > 0) {
+      currentIndex--;
+      renderStory(currentIndex);
+    } else if (x >= mid && currentIndex < stories.length - 1) {
+      currentIndex++;
+      renderStory(currentIndex);
+    } else if (x >= mid) {
+      D.modalViewStory.classList.add('hidden');
+    }
+  };
 }
 
 // ─────────────────────────────────────────────
@@ -2080,6 +2120,30 @@ onAuthStateChanged(auth, async user => {
     viewStoriesForUser(S.user.uid);
   });
 
+  // App Settings
+  D.btnAppSettings.addEventListener('click', () => {
+    D.modalAppSettings.classList.remove('hidden');
+  });
+
+  const DEFAULT_FONT_SIZE = 16;
+  const savedFontSize = localStorage.getItem('chatnica-font-size');
+  const currentSize = savedFontSize ? parseInt(savedFontSize) : DEFAULT_FONT_SIZE;
+  applyFontSize(currentSize);
+
+  D.fontSizeSlider.value = currentSize;
+  D.fontSizeSlider.addEventListener('input', () => {
+    const size = parseInt(D.fontSizeSlider.value);
+    applyFontSize(size);
+    localStorage.setItem('chatnica-font-size', size);
+  });
+
+  D.btnResetFont.addEventListener('click', () => {
+    applyFontSize(DEFAULT_FONT_SIZE);
+    D.fontSizeSlider.value = DEFAULT_FONT_SIZE;
+    localStorage.setItem('chatnica-font-size', DEFAULT_FONT_SIZE);
+    showToast('Tamaño de texto restablecido');
+  });
+
   // Modals close
   document.querySelectorAll('.modal-close').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -2088,7 +2152,7 @@ onAuthStateChanged(auth, async user => {
   });
 
   // Close modals on backdrop click
-  [D.modalNewConv, D.modalCreateGroup, D.modalNewPost, D.modalStory, D.modalEditProfile, D.modalSelectContact].forEach(modal => {
+  [D.modalNewConv, D.modalCreateGroup, D.modalNewPost, D.modalStory, D.modalEditProfile, D.modalSelectContact, D.modalAppSettings].forEach(modal => {
     modal.addEventListener('click', e => {
       if (e.target === modal) modal.classList.add('hidden');
     });
