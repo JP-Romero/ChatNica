@@ -409,6 +409,7 @@ function refreshOnlineIndicators() {
 // ─────────────────────────────────────────────
 function subscribeContacts() {
   S.unsubContacts?.();
+  console.log('[ChatNica] Suscribiendo a contactos...');
   const q = query(
     collection(db, 'contacts'),
     where('targetUid', '==', S.user.uid)
@@ -416,6 +417,7 @@ function subscribeContacts() {
   S.unsubContacts = onSnapshot(q, snap => {
     const incoming = [];
     snap.forEach(d => incoming.push({ id: d.id, ...d.data() }));
+    console.log('[ChatNica] Contactos entrantes:', incoming.length);
 
     const q2 = query(
       collection(db, 'contacts'),
@@ -424,15 +426,18 @@ function subscribeContacts() {
     getDocs(q2).then(snap2 => {
       const outgoing = [];
       snap2.forEach(d => outgoing.push({ id: d.id, ...d.data() }));
+      console.log('[ChatNica] Contactos salientes:', outgoing.length);
       loadAllUsers().then(users => {
         renderContacts(incoming, outgoing, users);
       });
     });
+  }, err => {
+    console.error('[ChatNica] Error en contactos:', err);
   });
 }
 
 async function loadAllUsers() {
-  const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+  const q = query(collection(db, 'users'));
   const snap = await getDocs(q);
   const users = [];
   snap.forEach(d => {
@@ -440,6 +445,7 @@ async function loadAllUsers() {
       users.push({ uid: d.id, ...d.data() });
     }
   });
+  console.log('[ChatNica] Usuarios encontrados:', users.length, users.map(u => u.displayName));
   return users;
 }
 
