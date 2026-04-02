@@ -21,7 +21,7 @@ const TYPING_CLEAR_MS = 3500;
 const PRESENCE_INTERVAL_MS = 55_000;
 const PRESENCE_STALE_MS = 6 * 60_000;
 const MAX_FILE_MB = 5;
-const ALLOWED_TYPES = ['image/jpeg','image/png','image/gif','image/webp'];
+const ALLOWED_TYPES = ['image/jpeg','image/png','image/gif','image/webp','video/mp4','video/webm','video/quicktime'];
 const AVATAR_COLORS = ['#60A5FA','#F87171','#34D399','#FBBF24','#A78BFA','#F472B6','#2DD4BF','#FB923C'];
 const DEFAULT_FONT_SIZE = 16;
 
@@ -34,7 +34,7 @@ const S = {
   currentConv: null,
   unsubConvs: null, unsubMsgs: null, unsubContacts: null,
   unsubFeed: null, unsubStories: null, unsubPresence: null,
-  replyTo: null, pendingFile: null,
+  replyTo: null, pendingFile: null, pendingVideo: null,
   msgEls: new Map(),
   presTimer: null, typingTimer: null,
   mediaRecorder: null, audioChunks: [], recInterval: null, recSeconds: 0,
@@ -71,7 +71,7 @@ const D = {
   chatHeaderAvatar: $('chat-header-avatar'), chatHeaderName: $('chat-header-name'), chatHeaderStatus: $('chat-header-status'),
   chatInfoBtn: $('chat-info-btn'), chatMessages: $('chat-messages'), emptyChat: $('empty-chat'),
   messageForm: $('message-form'), messageInput: $('message-input'),
-  imageInput: $('image-input'), btnSend: $('btn-send'), sendIcon: $('send-icon'), sendLoading: $('send-loading'),
+  imageInput: $('image-input'), videoInput: $('video-input'), btnSend: $('btn-send'), sendIcon: $('send-icon'), sendLoading: $('send-loading'),
   filePreview: $('file-preview'), filePreviewName: $('file-preview-name'), fileClearBtn: $('file-clear-btn'),
   micBtn: $('mic-btn'), recordingBar: $('recording-bar'), recordingTimer: $('recording-timer'), stopRecBtn: $('stop-rec-btn'),
   replyPreview: $('reply-preview'), replyUser: $('reply-user'), replyText: $('reply-text'), cancelReply: $('cancel-reply'),
@@ -984,6 +984,7 @@ function buildMsgEl(msgDoc) {
     </div>` : '';
 
   const imgHTML = d.image ? `<img src="${esc(d.image)}" class="msg-img" alt="imagen" data-fullurl="${esc(d.image)}">` : '';
+  const videoHTML = d.video ? `<video src="${esc(d.video)}" controls class="msg-video" preload="metadata"></video>` : '';
   const audioHTML = d.audio ? `<audio src="${esc(d.audio)}" controls class="msg-audio"></audio>` : '';
 
   const reactHTML = buildReactHTML(d.reactions || {}, id);
@@ -1006,6 +1007,7 @@ function buildMsgEl(msgDoc) {
       ${replyHTML}
       ${senderHTML}
       ${imgHTML}
+      ${videoHTML}
       ${audioHTML}
       ${d.text ? `<div class="msg-text">${esc(d.text)}</div>` : ''}
       <div class="msg-foot">
@@ -1044,13 +1046,22 @@ function buildReactHTML(reactions, msgId) {
 
 async function sendMessage() {
   const text = D.messageInput.value.trim();
-  const file = D.imageInput.files[0];
-  if ((!text && !file && !S.pendingFile) || !S.user) return;
+  const imageFile = D.imageInput.files[0];
+  const videoFile = D.videoInput.files[0];
+  if ((!text && !imageFile && !videoFile && !S.pendingFile && !S.pendingVideo) || !S.user) return;
 
-  const fileToSend = file || S.pendingFile;
+  const fileToSend = imageFile || S.pendingFile;
+  const videoToSend = videoFile || S.pendingVideo;
+  const isImage = !!fileToSend;
+  const isVideo = !!videoToSend;
+
   if (fileToSend) {
-    if (!ALLOWED_TYPES.includes(fileToSend.type)) return showToast('Solo imágenes (JPG, PNG, GIF, WebP).');
+    if (!fileToSend.type.startsWith('image/')) return showToast('Solo imágenes (JPG, PNG, GIF, WebP).');
     if (fileToSend.size > MAX_FILE_MB * 1024 * 1024) return showToast(`Máximo ${MAX_FILE_MB} MB.`);
+  }
+  if (videoToSend) {
+    if (!videoToSend.type.startsWith('video/')) return showToast('Solo videos (MP4, WebM, MOV).');
+    if (videoToSend.size > MAX_FILE_MB * 1024 * 1024) return showToast(`Máximo ${MAX_FILE_MB} MB.`);
   }
 
   D.btnSend.disabled = true;
@@ -1059,17 +1070,24 @@ async function sendMessage() {
 
   try {
     let imageUrl = null;
+    let videoUrl = null;
     if (fileToSend) {
       const blob = await compressImage(fileToSend);
       const sRef = ref(storage, `chats/${S.currentConv.id}/${Date.now()}_${fileToSend.name}`);
       const result = await uploadBytes(sRef, blob);
       imageUrl = await getDownloadURL(result.ref);
     }
+    if (videoToSend) {
+      const sRef = ref(storage, `chats/${S.currentConv.id}/${Date.now()}_${videoToSend.name}`);
+      const result = await uploadBytes(sRef, videoToSend);
+      videoUrl = await getDownloadURL(result.ref);
+    }
 
     const msg = {
       conversationId: S.currentConv.id,
       text: text || null,
       image: imageUrl || null,
+      video: videoUrl || null,
       audio: null,
       user: S.profile?.displayName || 'Anónimo',
       photoURL: S.profile?.photoURL || null,
@@ -1085,8 +1103,12 @@ async function sendMessage() {
     const docRef = await addDoc(collection(db, 'messages'), msg);
     console.log('[ChatNica] Mensaje guardado con ID:', docRef.id);
 
+    let lastMsgText = text;
+    if (isVideo) lastMsgText = '🎬 Video';
+    else if (isImage) lastMsgText = '📷 Imagen';
+
     await updateDoc(doc(db, 'conversations', S.currentConv.id), {
-      lastMessage: text || '📷 Imagen',
+      lastMessage: lastMsgText || (isVideo ? '🎬 Video' : '📷 Imagen'),
       lastMessageTime: serverTimestamp()
     });
 
@@ -1247,6 +1269,7 @@ async function startRecording() {
 }
 
 async function uploadVoiceNote(file) {
+  D.btnSend.disabled = true;
   D.sendLoading.classList.remove('hidden');
   try {
     const sRef = ref(storage, `voice/${S.currentConv.id}/${Date.now()}.webm`);
@@ -1254,8 +1277,9 @@ async function uploadVoiceNote(file) {
     const url = await getDownloadURL(res.ref);
     await addDoc(collection(db, 'messages'), {
       conversationId: S.currentConv.id,
-      audio: url, text: null, image: null,
+      audio: url, text: null, image: null, video: null,
       user: S.profile?.displayName || 'Anónimo',
+      photoURL: S.profile?.photoURL || null,
       uid: S.user.uid,
       color: S.profile?.color || getUserColor(S.user.uid),
       timestamp: serverTimestamp(), reactions: {}, replyTo: null,
@@ -1265,8 +1289,13 @@ async function uploadVoiceNote(file) {
       lastMessage: '🎤 Nota de voz',
       lastMessageTime: serverTimestamp()
     });
-  } catch (e) { console.error(e); }
-  finally { D.sendLoading.classList.add('hidden'); }
+  } catch (e) {
+    console.error('[ChatNica] uploadVoiceNote:', e);
+    showToast('Error al enviar nota de voz: ' + e.message);
+  } finally {
+    D.btnSend.disabled = false;
+    D.sendLoading.classList.add('hidden');
+  }
 }
 
 function stopRecording() {
@@ -1281,16 +1310,30 @@ function stopRecording() {
 function onFileChange() {
   const file = D.imageInput.files[0];
   if (!file) return clearFilePreview();
-  if (!ALLOWED_TYPES.includes(file.type)) { showToast('Solo imágenes (JPG, PNG, GIF, WebP).'); return clearFilePreview(); }
+  if (!ALLOWED_TYPES.includes(file.type) || !file.type.startsWith('image/')) { showToast('Solo imágenes (JPG, PNG, GIF, WebP).'); return clearFilePreview(); }
   if (file.size > MAX_FILE_MB * 1024 * 1024) { showToast(`Máximo ${MAX_FILE_MB} MB.`); return clearFilePreview(); }
   S.pendingFile = file;
+  S.pendingVideo = null;
+  D.filePreviewName.textContent = file.name;
+  D.filePreview.classList.remove('hidden');
+}
+
+function onVideoChange() {
+  const file = D.videoInput.files[0];
+  if (!file) return clearFilePreview();
+  if (!file.type.startsWith('video/')) { showToast('Solo videos (MP4, WebM, MOV).'); return clearFilePreview(); }
+  if (file.size > MAX_FILE_MB * 1024 * 1024) { showToast(`Máximo ${MAX_FILE_MB} MB.`); return clearFilePreview(); }
+  S.pendingVideo = file;
+  S.pendingFile = null;
   D.filePreviewName.textContent = file.name;
   D.filePreview.classList.remove('hidden');
 }
 
 function clearFilePreview() {
   D.imageInput.value = '';
+  D.videoInput.value = '';
   S.pendingFile = null;
+  S.pendingVideo = null;
   D.filePreview.classList.add('hidden');
   D.filePreviewName.textContent = '';
 }
@@ -2051,6 +2094,7 @@ onAuthStateChanged(auth, async user => {
 
   // File
   D.imageInput.addEventListener('change', onFileChange);
+  D.videoInput.addEventListener('change', onVideoChange);
   D.fileClearBtn.addEventListener('click', clearFilePreview);
 
   // Reply
