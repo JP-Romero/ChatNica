@@ -3,6 +3,7 @@
   "version": "2.0.0",
   "description": "App de mensajería para Nicaragua (PocketBase)",
   "scripts": {
-    "pb": "cd pocketbase && pocketbase.exe serve"
+    "pb": "cd pocketbase && pocketbase.exe serve",
+    "migrate": "cd migration && npm install && node firebase-to-pb.mjs"
   }
 }

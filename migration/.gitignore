@@ -1,0 +1,5 @@
+# Git ignore for migration folder
+serviceAccountKey.json
+.env
+node_modules/
+tmp/

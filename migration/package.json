@@ -1,0 +1,14 @@
+{
+  "name": "chatnica-migration",
+  "version": "1.0.0",
+  "description": "Firebase to PocketBase migration tool for ChatNica",
+  "type": "module",
+  "scripts": {
+    "migrate": "node firebase-to-pb.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "pocketbase": "^0.22.3",
+    "node-fetch": "^3.3.2"
+  }
+}
