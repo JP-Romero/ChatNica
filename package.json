@@ -1,10 +1,8 @@
 {
   "name": "chatnica",
-  "version": "1.0.0",
-  "description": "App de mensajería para Nicaragua",
+  "version": "2.0.0",
+  "description": "App de mensajería para Nicaragua (PocketBase)",
   "scripts": {
-    "preview": "firebase hosting:channel:deploy pruebas --expires 7d",
-    "clean-preview": "firebase hosting:channel:delete pruebas",
-    "deploy": "firebase deploy"
+    "pb": "cd pocketbase && pocketbase.exe serve"
   }
 }

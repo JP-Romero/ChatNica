@@ -18,49 +18,132 @@
 
 - HTML5 + CSS3 + JavaScript (Vanilla)
 - Tailwind CSS (vía CDN)
-- Firebase (Firestore + Auth + Storage)
+- PocketBase (Auth + Database + Storage + Realtime)
 
 ## 📦 Instalación
 
-1. **Crea tu proyecto en Firebase:**
-   - Ve a [Firebase Console](https://console.firebase.google.com) y crea un proyecto llamado "ChatNica".
-
-2. **Configura Authentication:**
-   - Ve a **Build > Authentication > Sign-in method**
-   - Habilita: **Google** + **Email/Password** + **Anónimo**
-
-3. **Configura Firestore Database:**
-   - Ve a **Build > Firestore Database** y crea la base de datos
-   - Selecciona "Modo de prueba" o usa las reglas del archivo `firestore.rules`
-
-4. **Configura Storage:**
-   - Ve a **Build > Storage** y crea el almacenamiento
-   - Reglas recomendadas:
-     ```
-     rules_version = '2';
-     service firebase.storage {
-       match /b/{bucket}/o {
-         match /{allPaths=**} {
-           allow read: if request.auth != null;
-           allow write: if request.auth != null && request.resource.size < 5 * 1024 * 1024;
-         }
-       }
-     }
-     ```
-
-5. **Obtén las credenciales:**
-   - En la página del proyecto, pulsa el icono **Web** (`</>`)
-   - Copia el objeto `firebaseConfig`
-   - Pégalo en `firebase-config.js`
-
-## 🚀 Despliegue
+### 1. Iniciar PocketBase
 
 ```bash
-npm install -g firebase-tools
-firebase login
-firebase init hosting
-firebase deploy
+cd pocketbase
+./pocketbase.exe serve
 ```
+
+PocketBase se ejecutará en `http://127.0.0.1:8090`
+
+### 2. Configurar el admin
+
+- Abre `http://127.0.0.1:8090/_/`
+- Crea tu cuenta de administrador
+
+### 3. Configurar colecciones
+
+Abre la consola admin de PocketBase y crea estas colecciones:
+
+#### `users` (auth collection)
+Campos extra:
+- `displayName` (text)
+- `photoURL` (file, single)
+- `color` (text)
+- `bio` (text)
+- `city` (text)
+- `department` (text)
+
+#### `contacts` (base)
+- `requester` (relation → users)
+- `target` (relation → users)
+- `status` (select: pending, accepted)
+
+API Rules:
+- List/View: `@request.auth.id != ""`
+- Create: `@request.auth.id != "" && requester = @request.auth.id`
+- Update/Delete: `@request.auth.id != ""`
+
+#### `conversations` (base)
+- `type` (select: direct, group)
+- `participants` (relation[] → users)
+- `name` (text)
+- `createdBy` (relation → users)
+- `lastMessage` (text)
+- `lastMessageTime` (date)
+
+API Rules:
+- List/View: `@request.auth.id != "" && participants.id ?= @request.auth.id`
+- Create: `@request.auth.id != "" && participants.id ?= @request.auth.id`
+- Update: `@request.auth.id != "" && participants.id ?= @request.auth.id`
+- Delete: `@request.auth.id != "" && createdBy = @request.auth.id`
+
+#### `messages` (base)
+- `conversation` (relation → conversations)
+- `text` (text)
+- `image` (file, single)
+- `video` (file, single)
+- `audio` (file, single)
+- `user` (relation → users)
+- `replyTo` (relation → messages)
+- `replyToUserName` (text)
+- `reactions` (json)
+- `status` (select: sent, delivered, read)
+
+API Rules:
+- List/View: `@request.auth.id != ""`
+- Create: `@request.auth.id != "" && user = @request.auth.id`
+- Update: `@request.auth.id != ""`
+- Delete: `@request.auth.id != "" && user = @request.auth.id`
+
+#### `posts` (base)
+- `uid` (relation → users)
+- `text` (text)
+- `images` (file, multiple)
+- `likes` (json)
+- `comments` (json)
+
+API Rules:
+- List/View: `@request.auth.id != ""`
+- Create: `@request.auth.id != "" && uid = @request.auth.id`
+- Update/Delete: `@request.auth.id != "" && uid = @request.auth.id`
+
+#### `stories` (base)
+- `uid` (relation → users)
+- `type` (select: image, text)
+- `image` (file, single)
+- `text` (text)
+- `expiresAt` (date)
+- `views` (json)
+
+API Rules:
+- List/View: `@request.auth.id != ""`
+- Create: `@request.auth.id != "" && uid = @request.auth.id`
+- Update/Delete: `@request.auth.id != "" && uid = @request.auth.id`
+
+#### `presence` (base)
+- `user` (relation → users, unique)
+- `online` (bool)
+- `lastSeen` (date)
+
+API Rules:
+- List/View: `@request.auth.id != ""`
+- Create/Update/Delete: `@request.auth.id != "" && user = @request.auth.id`
+
+Index: `CREATE UNIQUE INDEX idx_presence_user ON presence (user)`
+
+#### `typing` (base)
+- `conversation` (relation → conversations, unique)
+- `typers` (json)
+
+API Rules:
+- List/View/Create/Update/Delete: `@request.auth.id != ""`
+
+Index: `CREATE UNIQUE INDEX idx_typing_conv ON typing (conversation)`
+
+### 4. Configurar Google OAuth
+
+- Ve a Settings > OAuth2 en el admin de PocketBase
+- Agrega Google como provider con tu Client ID y Secret
+
+### 5. Abrir la app
+
+Abre `index.html` en tu navegador. La app se conectará automáticamente a PocketBase en `http://127.0.0.1:8090`.
 
 ## 📱 Estructura de la App
 

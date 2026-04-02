@@ -1,17 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
-//  app.js — ChatNica v2
+//  app.js — ChatNica v2 (PocketBase Edition)
 //  Mensajería + Red Social para Nicaragua
 // ═══════════════════════════════════════════════════════════════
 
-import {
-  db, auth, storage, googleProvider,
-  collection, addDoc, deleteDoc, query, orderBy, where, limit,
-  onSnapshot, serverTimestamp, doc, setDoc, getDoc, updateDoc,
-  deleteField, getDocs, arrayUnion, arrayRemove, Timestamp,
-  ref, uploadBytes, getDownloadURL,
-  signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  signInAnonymously, signOut, onAuthStateChanged, updateProfile
-} from './firebase-config.js';
+import { pb } from './pb-config.js';
 
 // ─────────────────────────────────────────────
 //  CONSTANTS
@@ -126,13 +118,13 @@ const getInitials = name => {
 
 const fmtTime = ts => {
   if (!ts) return '';
-  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const d = new Date(ts);
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
 const fmtDate = ts => {
   if (!ts) return '';
-  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const d = new Date(ts);
   const now = new Date();
   const diff = now - d;
   if (diff < 86400000 && d.getDate() === now.getDate()) return fmtTime(ts);
@@ -142,7 +134,7 @@ const fmtDate = ts => {
 
 const fmtTimeAgo = ts => {
   if (!ts) return '';
-  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const d = new Date(ts);
   const diff = Date.now() - d;
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return 'ahora';
@@ -165,13 +157,19 @@ const getTickIcon = status => {
 
 const scrollBottom = () => { D.chatMessages.scrollTop = D.chatMessages.scrollHeight; };
 
-const avatarHTML = (photoURL, color, name, sizeClass = '') => {
-  if (photoURL) return `<img src="${esc(photoURL)}" alt="" class="w-full h-full object-cover">`;
-  return getInitials(name);
-};
-
 const convIdForDirect = (uid1, uid2) => {
   return uid1 < uid2 ? `direct_${uid1}_${uid2}` : `direct_${uid2}_${uid1}`;
+};
+
+const getFileURL = (record, fieldName) => {
+  if (!record || !record[fieldName]) return null;
+  return pb.files.getURL(record, record[fieldName]);
+};
+
+const getMultiFileURL = (record, fieldName, index = 0) => {
+  if (!record || !record[fieldName] || !record[fieldName].length) return null;
+  const fname = Array.isArray(record[fieldName]) ? record[fieldName][index] : record[fieldName];
+  return pb.files.getURL(record, fname);
 };
 
 async function compressImage(file, maxW = 1280, quality = 0.82) {
@@ -207,18 +205,15 @@ const showToast = msg => {
 // ─────────────────────────────────────────────
 //  AUTH
 // ─────────────────────────────────────────────
-const friendlyError = e => ({
-  'auth/user-not-found': 'No existe una cuenta con ese correo.',
-  'auth/wrong-password': 'Contraseña incorrecta.',
-  'auth/invalid-credential': 'Correo o contraseña incorrectos.',
-  'auth/email-already-in-use': 'Ese correo ya está registrado.',
-  'auth/invalid-email': 'Correo inválido.',
-  'auth/too-many-requests': 'Demasiados intentos. Espera un momento.',
-  'auth/popup-closed-by-user': 'Ventana cerrada. Intenta de nuevo.',
-  'auth/network-request-failed': 'Sin conexión. Revisa tu red.',
-  'auth/api-key-not-valid': '⚠️ Configura tus credenciales de Firebase.',
-  'auth/operation-not-allowed': '⚠️ Habilita este método en la Consola de Firebase.',
-}[e.code] || e.message || 'Error desconocido.');
+const friendlyError = msg => {
+  const m = (msg || '').toLowerCase();
+  if (m.includes('invalid login') || m.includes('credentials')) return 'Correo o contraseña incorrectos.';
+  if (m.includes('already exists')) return 'Ese correo ya está registrado.';
+  if (m.includes('password')) return 'Contraseña incorrecta o demasiado corta.';
+  if (m.includes('popup') || m.includes('cancelled')) return 'Ventana cerrada. Intenta de nuevo.';
+  if (m.includes('network')) return 'Sin conexión. Revisa tu red.';
+  return msg || 'Error desconocido.';
+};
 
 const setAuthBusy = (busy, which) => {
   const map = {
@@ -243,38 +238,53 @@ const clearAuthErrors = () => {
 };
 
 async function ensureProfile(user) {
-  const pRef = doc(db, 'users', user.uid);
-  const snap = await getDoc(pRef);
-  const name = user.displayName || user.email?.split('@')[0] || 'Usuario';
-  if (!snap.exists()) {
-    const p = {
-      displayName: name, email: user.email || null, photoURL: user.photoURL || null,
-      color: getUserColor(user.uid), bio: '', city: '', department: '',
-      createdAt: serverTimestamp(), lastSeen: serverTimestamp()
-    };
-    await setDoc(pRef, p);
-    return { ...p, displayName: name };
+  try {
+    const profile = await pb.collection('users').getOne(user.id);
+    const patch = {};
+    if (user.name && user.name !== profile.displayName) patch.displayName = user.name;
+    if (user.avatar && user.avatar !== profile.photoURL) patch.photoURL = user.avatar;
+    if (Object.keys(patch).length) {
+      await pb.collection('users').update(user.id, patch);
+    }
+    return { ...profile, ...patch };
+  } catch (e) {
+    if (e.status === 404) {
+      const name = user.name || user.email?.split('@')[0] || 'Usuario';
+      const p = {
+        displayName: name,
+        photoURL: null,
+        color: getUserColor(user.id),
+        bio: '',
+        city: '',
+        department: '',
+      };
+      await pb.collection('users').update(user.id, p);
+      return { ...p, id: user.id, email: user.email, displayName: name };
+    }
+    throw e;
   }
-  const data = snap.data();
-  const patch = {};
-  if (user.displayName && user.displayName !== data.displayName) patch.displayName = user.displayName;
-  if (user.photoURL && user.photoURL !== data.photoURL) patch.photoURL = user.photoURL;
-  if (Object.keys(patch).length) await updateDoc(pRef, patch);
-  return { ...data, ...patch };
 }
 
 const loginWithGoogle = async () => {
   setAuthBusy(true, 'google');
-  try { await signInWithPopup(auth, googleProvider); }
-  catch (e) { showAuthError('login', friendlyError(e)); setAuthBusy(false, 'google'); }
+  try {
+    await pb.collection('users').authWithOAuth2({ provider: 'google' });
+  } catch (e) {
+    showAuthError('login', friendlyError(e.message));
+    setAuthBusy(false, 'google');
+  }
 };
 
 const loginWithEmail = async () => {
   const em = D.loginEmail.value.trim(), pw = D.loginPassword.value;
   if (!em || !pw) return showAuthError('login', 'Completa todos los campos.');
   setAuthBusy(true, 'login');
-  try { await signInWithEmailAndPassword(auth, em, pw); }
-  catch (e) { showAuthError('login', friendlyError(e)); setAuthBusy(false, 'login'); }
+  try {
+    await pb.collection('users').authWithPassword(em, pw);
+  } catch (e) {
+    showAuthError('login', friendlyError(e.message));
+    setAuthBusy(false, 'login');
+  }
 };
 
 const registerWithEmail = async () => {
@@ -283,15 +293,24 @@ const registerWithEmail = async () => {
   if (pw.length < 6) return showAuthError('reg', 'Mínimo 6 caracteres.');
   setAuthBusy(true, 'reg');
   try {
-    const { user } = await createUserWithEmailAndPassword(auth, em, pw);
-    await updateProfile(user, { displayName: name });
-  } catch (e) { showAuthError('reg', friendlyError(e)); setAuthBusy(false, 'reg'); }
+    await pb.collection('users').create({
+      email: em,
+      password: pw,
+      passwordConfirm: pw,
+      displayName: name,
+      emailVisibility: true,
+    });
+    await pb.collection('users').authWithPassword(em, pw);
+  } catch (e) {
+    showAuthError('reg', friendlyError(e.message));
+    setAuthBusy(false, 'reg');
+  }
 };
 
 const logout = async () => {
   stopAllSubscriptions();
   await setPresenceOffline();
-  await signOut(auth);
+  pb.authStore.clear();
 };
 
 // ─────────────────────────────────────────────
@@ -313,24 +332,26 @@ function showAuthView(v) {
 function updateHeader() {
   const p = S.profile;
   if (!p) return;
-  if (p.photoURL) {
-    D.headerAvatar.innerHTML = `<img src="${esc(p.photoURL)}" alt="" class="w-full h-full object-cover">`;
+  const photoURL = getFileURL(p, 'photoURL');
+  if (photoURL) {
+    D.headerAvatar.innerHTML = `<img src="${esc(photoURL)}" alt="" class="w-full h-full object-cover">`;
     D.headerAvatar.style.background = 'transparent';
   } else {
     D.headerAvatar.textContent = getInitials(p.displayName);
-    D.headerAvatar.style.background = p.color || getUserColor(S.user.uid);
+    D.headerAvatar.style.background = p.color || getUserColor(S.user.id);
   }
 }
 
 function updateProfileTab() {
   const p = S.profile;
   if (!p) return;
-  if (p.photoURL) {
-    D.profileAvatarLarge.innerHTML = `<img src="${esc(p.photoURL)}" alt="" class="w-full h-full object-cover">`;
+  const photoURL = getFileURL(p, 'photoURL');
+  if (photoURL) {
+    D.profileAvatarLarge.innerHTML = `<img src="${esc(photoURL)}" alt="" class="w-full h-full object-cover">`;
     D.profileAvatarLarge.style.background = 'transparent';
   } else {
     D.profileAvatarLarge.textContent = getInitials(p.displayName);
-    D.profileAvatarLarge.style.background = p.color || getUserColor(S.user.uid);
+    D.profileAvatarLarge.style.background = p.color || getUserColor(S.user.id);
   }
   D.profileName.textContent = p.displayName;
   D.profileEmail.textContent = p.email || 'Invitado';
@@ -425,33 +446,56 @@ function applyFontSizeToChat() {
 // ─────────────────────────────────────────────
 async function updatePresence() {
   if (!S.user) return;
-  await setDoc(doc(db, 'presence', S.user.uid), {
-    displayName: S.profile?.displayName || 'Usuario',
-    photoURL: S.profile?.photoURL || null,
-    color: S.profile?.color || getUserColor(S.user.uid),
-    online: true, lastSeen: serverTimestamp()
-  }, { merge: true }).catch(() => {});
+  try {
+    const existing = await pb.collection('presence').getFirstListItem(`user = "${S.user.id}"`).catch(() => null);
+    const data = {
+      user: S.user.id,
+      online: true,
+      lastSeen: new Date().toISOString(),
+    };
+    if (existing) {
+      await pb.collection('presence').update(existing.id, data);
+    } else {
+      await pb.collection('presence').create(data);
+    }
+  } catch (e) {}
 }
 
 async function setPresenceOffline() {
   if (!S.user) return;
-  await updateDoc(doc(db, 'presence', S.user.uid), {
-    online: false, lastSeen: serverTimestamp()
-  }).catch(() => {});
+  try {
+    const existing = await pb.collection('presence').getFirstListItem(`user = "${S.user.id}"`).catch(() => null);
+    if (existing) {
+      await pb.collection('presence').update(existing.id, { online: false, lastSeen: new Date().toISOString() });
+    }
+  } catch (e) {}
 }
 
 function subscribePresence() {
   S.unsubPresence?.();
-  const threshold = Timestamp.fromMillis(Date.now() - PRESENCE_STALE_MS);
-  const q = query(collection(db, 'presence'), where('lastSeen', '>', threshold));
-  S.unsubPresence = onSnapshot(q, snap => {
+  const threshold = new Date(Date.now() - PRESENCE_STALE_MS).toISOString();
+
+  pb.collection('presence').subscribe('presence', e => {
+    if (e.action === 'delete') {
+      S.onlineUsers.delete(e.record.user);
+    } else {
+      const data = e.record;
+      if (data.online && new Date(data.lastSeen) > new Date(threshold)) {
+        S.onlineUsers.set(data.user, data);
+      } else {
+        S.onlineUsers.delete(data.user);
+      }
+    }
+    refreshOnlineIndicators();
+  });
+
+  pb.collection('presence').getFullList({ filter: `lastSeen > "${threshold}"` }).then(records => {
     S.onlineUsers.clear();
-    snap.forEach(d => {
-      const data = d.data();
-      if (data.online) S.onlineUsers.set(d.id, data);
+    records.forEach(r => {
+      if (r.online) S.onlineUsers.set(r.user, r);
     });
     refreshOnlineIndicators();
-  }, () => {});
+  }).catch(() => {});
 }
 
 function isOnline(uid) { return S.onlineUsers.has(uid); }
@@ -473,75 +517,60 @@ function refreshOnlineIndicators() {
 function subscribeContacts() {
   S.unsubContacts?.();
   console.log('[ChatNica] Suscribiendo a contactos...');
-  const q = query(collection(db, 'contacts'));
-  S.unsubContacts = onSnapshot(q, snap => {
-    const allContacts = [];
-    snap.forEach(d => allContacts.push({ id: d.id, ...d.data() }));
-    const incoming = allContacts.filter(c => c.targetUid === S.user.uid);
-    const outgoing = allContacts.filter(c => c.requesterUid === S.user.uid);
-    console.log('[ChatNica] Contactos entrantes:', incoming.length, 'salientes:', outgoing.length);
-    Promise.all([loadAllUsers(), cleanupOrphanContacts(incoming, outgoing)]).then(([users]) => {
-      renderContacts(incoming, outgoing, users);
-    });
-  }, err => {
-    console.error('[ChatNica] Error en contactos:', err);
+
+  pb.collection('contacts').subscribe('contacts', () => {
+    loadContactsAndRender();
   });
+
+  loadContactsAndRender();
 }
 
-async function cleanupOrphanContacts(incoming, outgoing) {
-  const usersSnap = await getDocs(collection(db, 'users'));
-  const existingUids = new Set();
-  usersSnap.forEach(d => existingUids.add(d.id));
+async function loadContactsAndRender() {
+  try {
+    const allContacts = await pb.collection('contacts').getFullList();
+    const incoming = allContacts.filter(c => c.target === S.user.id);
+    const outgoing = allContacts.filter(c => c.requester === S.user.id);
+    console.log('[ChatNica] Contactos entrantes:', incoming.length, 'salientes:', outgoing.length);
 
-  const allContacts = [...incoming, ...outgoing];
-  const orphanIds = [];
-  allContacts.forEach(c => {
-    if (!existingUids.has(c.requesterUid) || !existingUids.has(c.targetUid)) {
-      orphanIds.push(c.id);
-    }
-  });
-
-  for (const id of orphanIds) {
-    try { await deleteDoc(doc(db, 'contacts', id)); } catch (e) {}
+    const users = await loadAllUsers();
+    renderContacts(incoming, outgoing, users);
+  } catch (e) {
+    console.error('[ChatNica] Error en contactos:', e);
   }
-  if (orphanIds.length) console.log('[ChatNica] Contactos huérfanos eliminados:', orphanIds.length);
 }
 
 async function loadAllUsers() {
-  const q = query(collection(db, 'users'));
-  const snap = await getDocs(q);
-  const users = [];
-  snap.forEach(d => {
-    if (d.id !== S.user.uid) {
-      users.push({ uid: d.id, ...d.data() });
-    }
-  });
-  console.log('[ChatNica] Usuarios encontrados:', users.length, users.map(u => u.displayName));
-  return users;
+  try {
+    const users = await pb.collection('users').getFullList();
+    return users.filter(u => u.id !== S.user.id);
+  } catch (e) {
+    console.error('[ChatNica] Error cargando usuarios:', e);
+    return [];
+  }
 }
 
 function getContactStatus(uid, incoming, outgoing) {
-  const incomingContact = incoming.find(c => c.requesterUid === uid);
+  const incomingContact = incoming.find(c => c.requester === uid);
   if (incomingContact) return { status: incomingContact.status, id: incomingContact.id, direction: 'incoming' };
-  const outgoingContact = outgoing.find(c => c.targetUid === uid);
+  const outgoingContact = outgoing.find(c => c.target === uid);
   if (outgoingContact) return { status: outgoingContact.status, id: outgoingContact.id, direction: 'outgoing' };
   return { status: 'none', id: null, direction: 'none' };
 }
 
 function renderContacts(incoming, outgoing, allUsers) {
   const userMap = {};
-  allUsers.forEach(u => { userMap[u.uid] = u; });
+  allUsers.forEach(u => { userMap[u.id] = u; });
 
   const enrichedIncoming = incoming.map(c => ({
     ...c,
-    otherUid: c.requesterUid === S.user.uid ? c.targetUid : c.requesterUid,
-    ...userMap[c.requesterUid === S.user.uid ? c.targetUid : c.requesterUid]
+    otherUid: c.requester === S.user.id ? c.target : c.requester,
+    ...(userMap[c.requester === S.user.id ? c.target : c.requester] || {})
   }));
 
   const enrichedOutgoing = outgoing.map(c => ({
     ...c,
-    otherUid: c.requesterUid === S.user.uid ? c.targetUid : c.requesterUid,
-    ...userMap[c.requesterUid === S.user.uid ? c.targetUid : c.requesterUid]
+    otherUid: c.requester === S.user.id ? c.target : c.requester,
+    ...(userMap[c.requester === S.user.id ? c.target : c.requester] || {})
   }));
 
   const pending = enrichedIncoming.filter(c => c.status === 'pending');
@@ -557,11 +586,11 @@ function renderContacts(incoming, outgoing, allUsers) {
     D.contactsAcceptedList.innerHTML = accepted.map(c => contactItemHTML(c, 'accepted')).join('');
   }
 
-  const discoverUsers = allUsers.filter(u => !acceptedUids.has(u.uid));
+  const discoverUsers = allUsers.filter(u => !acceptedUids.has(u.id));
   if (discoverUsers.length) {
     D.contactsDiscoverSection.classList.remove('hidden');
     D.contactsDiscoverList.innerHTML = discoverUsers.map(u => {
-      const contactInfo = getContactStatus(u.uid, incoming, outgoing);
+      const contactInfo = getContactStatus(u.id, incoming, outgoing);
       return discoverUserHTML(u, contactInfo);
     }).join('');
   } else {
@@ -575,13 +604,14 @@ function renderContacts(incoming, outgoing, allUsers) {
 }
 
 function contactItemHTML(c, type) {
-  const otherUid = c.otherUid || (c.requesterUid === S.user.uid ? c.targetUid : c.requesterUid);
+  const otherUid = c.otherUid || (c.requester === S.user.id ? c.target : c.requester);
   const color = c.color || getUserColor(otherUid);
   const name = esc(c.displayName || 'Usuario');
   const city = c.city ? esc(c.city) : '';
 
-  const avatarInner = c.photoURL
-    ? `<img src="${esc(c.photoURL)}" alt="">`
+  const photoURL = getFileURL(c, 'photoURL');
+  const avatarInner = photoURL
+    ? `<img src="${esc(photoURL)}" alt="">`
     : getInitials(c.displayName || 'U');
 
   const online = isOnline(otherUid);
@@ -616,21 +646,22 @@ function contactItemHTML(c, type) {
 }
 
 function discoverUserHTML(u, contactInfo) {
-  const color = u.color || getUserColor(u.uid);
+  const color = u.color || getUserColor(u.id);
   const name = esc(u.displayName || 'Usuario');
   const city = u.city ? esc(u.city) : '';
-  const online = isOnline(u.uid);
-  const onlineDot = `<div class="online-dot${online ? '' : ' hidden'}" data-uid="${u.uid}"></div>`;
+  const online = isOnline(u.id);
+  const onlineDot = `<div class="online-dot${online ? '' : ' hidden'}" data-uid="${u.id}"></div>`;
 
-  const avatarInner = u.photoURL
-    ? `<img src="${esc(u.photoURL)}" alt="">`
+  const photoURL = getFileURL(u, 'photoURL');
+  const avatarInner = photoURL
+    ? `<img src="${esc(photoURL)}" alt="">`
     : getInitials(u.displayName || 'U');
 
   let actions = '';
   if (contactInfo.status === 'none') {
     actions = `
       <div class="contact-actions">
-        <button class="contact-btn contact-btn-chat" data-action="add-contact" data-uid="${u.uid}">Agregar</button>
+        <button class="contact-btn contact-btn-chat" data-action="add-contact" data-uid="${u.id}">Agregar</button>
       </div>`;
   } else if (contactInfo.status === 'pending') {
     if (contactInfo.direction === 'outgoing') {
@@ -645,12 +676,12 @@ function discoverUserHTML(u, contactInfo) {
   } else if (contactInfo.status === 'accepted') {
     actions = `
       <div class="contact-actions">
-        <button class="contact-btn contact-btn-chat" data-action="chat" data-uid="${u.uid}">💬</button>
+        <button class="contact-btn contact-btn-chat" data-action="chat" data-uid="${u.id}">💬</button>
       </div>`;
   }
 
   return `
-    <div class="contact-item" data-uid="${u.uid}">
+    <div class="contact-item" data-uid="${u.id}">
       <div class="contact-avatar" style="background:${color}">
         ${avatarInner}
         ${onlineDot}
@@ -665,73 +696,61 @@ function discoverUserHTML(u, contactInfo) {
 
 async function sendContactRequest(targetUid) {
   try {
-    const contactId = convIdForDirect(S.user.uid, targetUid);
-    await setDoc(doc(db, 'contacts', contactId), {
-      requesterUid: S.user.uid,
-      targetUid,
+    const contactId = convIdForDirect(S.user.id, targetUid);
+    await pb.collection('contacts').create({
+      id: contactId,
+      requester: S.user.id,
+      target: targetUid,
       status: 'pending',
-      createdAt: serverTimestamp()
     });
     showToast('Solicitud enviada');
-  } catch (e) { showToast('Error: ' + e.message); }
+  } catch (e) { showToast('Error: ' + (e.message || e)); }
 }
 
 async function acceptContact(contactId) {
   try {
-    await updateDoc(doc(db, 'contacts', contactId), { status: 'accepted' });
+    await pb.collection('contacts').update(contactId, { status: 'accepted' });
     showToast('Contacto aceptado');
-  } catch (e) { showToast('Error: ' + e.message); }
+  } catch (e) { showToast('Error: ' + (e.message || e)); }
 }
 
 async function rejectContact(contactId) {
   try {
-    await deleteDoc(doc(db, 'contacts', contactId));
+    await pb.collection('contacts').delete(contactId);
     showToast('Solicitud rechazada');
-  } catch (e) { showToast('Error: ' + e.message); }
+  } catch (e) { showToast('Error: ' + (e.message || e)); }
 }
 
 async function searchUsers(queryStr) {
   if (!queryStr || queryStr.length < 2) return [];
-  const q = query(collection(db, 'users'));
-  const snap = await getDocs(q);
-  const results = [];
-  const lower = queryStr.toLowerCase();
-  snap.forEach(d => {
-    const data = d.data();
-    if (d.id === S.user.uid) return;
-    if (data.displayName?.toLowerCase().includes(lower) || data.email?.toLowerCase().includes(lower)) {
-      results.push({ uid: d.id, ...data });
-    }
-  });
-  return results.slice(0, 20);
+  try {
+    const results = await pb.collection('users').getFullList({
+      filter: `displayName ~ "${queryStr}" || email ~ "${queryStr}"`
+    });
+    return results.filter(u => u.id !== S.user.id).slice(0, 20);
+  } catch (e) {
+    return [];
+  }
 }
 
 async function getAcceptedContacts() {
-  const snap = await getDocs(collection(db, 'contacts'));
-  const userCache = {};
-  const contacts = [];
-  snap.forEach(d => {
-    const data = d.data();
-    if (data.status === 'accepted') {
-      let otherUid;
-      if (data.requesterUid === S.user.uid) {
-        otherUid = data.targetUid;
-      } else if (data.targetUid === S.user.uid) {
-        otherUid = data.requesterUid;
-      }
-      if (otherUid) {
-        contacts.push({ uid: otherUid, contactId: d.id, ...data });
-      }
+  try {
+    const contacts = await pb.collection('contacts').getFullList({
+      filter: `status = "accepted" && (requester = "${S.user.id}" || target = "${S.user.id}")`
+    });
+
+    const result = [];
+    for (const c of contacts) {
+      const otherUid = c.requester === S.user.id ? c.target : c.requester;
+      try {
+        const user = await pb.collection('users').getOne(otherUid);
+        result.push({ uid: otherUid, contactId: c.id, ...user });
+      } catch (e) {}
     }
-  });
-  for (const c of contacts) {
-    if (!userCache[c.uid]) {
-      const uSnap = await getDoc(doc(db, 'users', c.uid));
-      userCache[c.uid] = uSnap.exists() ? uSnap.data() : {};
-    }
-    Object.assign(c, userCache[c.uid]);
+    return result;
+  } catch (e) {
+    return [];
   }
-  return contacts;
 }
 
 // ─────────────────────────────────────────────
@@ -739,27 +758,35 @@ async function getAcceptedContacts() {
 // ─────────────────────────────────────────────
 function subscribeConversations() {
   S.unsubConvs?.();
-  const q = query(collection(db, 'conversations'));
-  S.unsubConvs = onSnapshot(q, snap => {
-    const convs = [];
-    snap.forEach(d => {
-      const data = d.data();
-      if (data.participants?.includes(S.user.uid)) {
-        convs.push({ id: d.id, ...data });
-      }
+
+  pb.collection('conversations').subscribe('convs', () => {
+    loadConversations();
+  });
+
+  loadConversations();
+}
+
+async function loadConversations() {
+  try {
+    const convs = await pb.collection('conversations').getFullList({
+      filter: `participants.id ?= "${S.user.id}"`,
+      expand: 'participants',
+      sort: '-lastMessageTime',
     });
+
     convs.sort((a, b) => {
-      const ta = a.lastMessageTime?.toMillis?.() || 0;
-      const tb = b.lastMessageTime?.toMillis?.() || 0;
+      const ta = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+      const tb = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
       if (ta === 0 && tb === 0) return 0;
       if (ta === 0) return 1;
       if (tb === 0) return -1;
       return tb - ta;
     });
+
     renderConversations(convs);
-  }, err => {
-    console.error('[ChatNica] convs error:', err);
-  });
+  } catch (e) {
+    console.error('[ChatNica] convs error:', e);
+  }
 }
 
 function renderConversations(convs) {
@@ -777,26 +804,26 @@ function renderConversations(convs) {
 
 function convItemHTML(c) {
   const isGroup = c.type === 'group';
-  const otherUid = isGroup ? null : c.participants?.find(p => p !== S.user.uid);
-  const otherInfo = isGroup ? null : (S.onlineUsers.get(otherUid) || {});
+  const participants = c.expand?.participants || [];
+  const otherUser = isGroup ? null : participants.find(p => p.id !== S.user.id);
+  const otherUid = otherUser?.id;
   const online = isGroup ? false : isOnline(otherUid);
 
-  const name = isGroup ? esc(c.name || 'Grupo') : esc(otherInfo?.displayName || c.name || 'Usuario');
+  const name = isGroup ? esc(c.name || 'Grupo') : esc(otherUser?.displayName || c.name || 'Usuario');
   const lastMsg = c.lastMessage ? esc(c.lastMessage) : 'Sin mensajes';
   const time = c.lastMessageTime ? fmtDate(c.lastMessageTime) : '';
 
   let avatarInner;
   if (isGroup) {
-    avatarInner = c.photoURL
-      ? `<img src="${esc(c.photoURL)}" alt="">`
-      : getInitials(c.name || 'G');
+    avatarInner = getInitials(c.name || 'G');
   } else {
-    avatarInner = otherInfo?.photoURL
-      ? `<img src="${esc(otherInfo.photoURL)}" alt="">`
-      : getInitials(otherInfo?.displayName || 'U');
+    const photoURL = getFileURL(otherUser, 'photoURL');
+    avatarInner = photoURL
+      ? `<img src="${esc(photoURL)}" alt="">`
+      : getInitials(otherUser?.displayName || 'U');
   }
 
-  const avatarBg = isGroup ? '#004A99' : (otherInfo?.color || getUserColor(otherUid || ''));
+  const avatarBg = isGroup ? '#004A99' : (otherUser?.color || getUserColor(otherUid || ''));
 
   return `
     <div class="conv-item" data-conv-id="${c.id}" data-conv-type="${c.type}">
@@ -815,39 +842,38 @@ function convItemHTML(c) {
 }
 
 async function getOrCreateDirectConv(targetUid) {
-  const convId = convIdForDirect(S.user.uid, targetUid);
-  const convRef = doc(db, 'conversations', convId);
-  const snap = await getDoc(convRef);
-  if (snap.exists()) return convId;
+  const convId = convIdForDirect(S.user.id, targetUid);
 
-  const targetSnap = await getDoc(doc(db, 'users', targetUid));
-  const targetData = targetSnap.data() || {};
+  try {
+    const existing = await pb.collection('conversations').getOne(convId);
+    return convId;
+  } catch (e) {}
 
-  await setDoc(convRef, {
-    type: 'direct',
-    participants: [S.user.uid, targetUid],
-    name: targetData.displayName || 'Usuario',
-    createdBy: S.user.uid,
-    createdAt: serverTimestamp(),
-    lastMessage: null,
-    lastMessageTime: null
-  });
-  return convId;
+  try {
+    const targetData = await pb.collection('users').getOne(targetUid).catch(() => ({}));
+
+    await pb.collection('conversations').create({
+      id: convId,
+      type: 'direct',
+      participants: [S.user.id, targetUid],
+      name: targetData.displayName || 'Usuario',
+      createdBy: S.user.id,
+    });
+    return convId;
+  } catch (e) {
+    throw e;
+  }
 }
 
 async function createGroup(name, memberUids) {
-  const convRef = doc(collection(db, 'conversations'));
-  const participants = [S.user.uid, ...memberUids];
-  await setDoc(convRef, {
+  const participants = [S.user.id, ...memberUids];
+  const record = await pb.collection('conversations').create({
     type: 'group',
     participants,
     name,
-    createdBy: S.user.uid,
-    createdAt: serverTimestamp(),
-    lastMessage: null,
-    lastMessageTime: null
+    createdBy: S.user.id,
   });
-  return convRef.id;
+  return record.id;
 }
 
 // ─────────────────────────────────────────────
@@ -865,10 +891,13 @@ async function openChat(convId, convData) {
   D.chatHeaderName.textContent = isGroup ? (convData.name || 'Grupo') : (convData.name || 'Usuario');
   updateChatHeaderStatus();
 
-  const avatarBg = isGroup ? '#004A99' : (convData.otherColor || getUserColor(convData.participants?.find(p => p !== S.user.uid) || ''));
+  const participants = convData.expand?.participants || [];
+  const otherUser = isGroup ? null : participants.find(p => p.id !== S.user.id);
+  const avatarBg = isGroup ? '#004A99' : (otherUser?.color || getUserColor(otherUser?.id || ''));
+  const otherPhotoURL = otherUser ? getFileURL(otherUser, 'photoURL') : null;
   const avatarInner = isGroup
-    ? (convData.photoURL ? `<img src="${esc(convData.photoURL)}" alt="">` : getInitials(convData.name || 'G'))
-    : (convData.otherPhotoURL ? `<img src="${esc(convData.otherPhotoURL)}" alt="">` : getInitials(convData.name || 'U'));
+    ? getInitials(convData.name || 'G')
+    : (otherPhotoURL ? `<img src="${esc(otherPhotoURL)}" alt="">` : getInitials(convData.name || 'U'));
   D.chatHeaderAvatar.innerHTML = avatarInner;
   D.chatHeaderAvatar.style.background = avatarBg;
 
@@ -894,21 +923,21 @@ function updateChatHeaderStatus() {
   if (!S.currentConv) return;
   const isGroup = S.currentConv.type === 'group';
   if (isGroup) {
-    const count = S.currentConv.participants?.length || 0;
-    D.chatHeaderStatus.textContent = `${count} participantes`;
+    const participants = S.currentConv.expand?.participants || S.currentConv.participants || [];
+    D.chatHeaderStatus.textContent = `${participants.length} participantes`;
   } else {
-    const otherUid = S.currentConv.participants?.find(p => p !== S.user.uid);
+    const participants = S.currentConv.expand?.participants || [];
+    const otherUser = participants.find(p => p.id !== S.user.id);
+    const otherUid = otherUser?.id || S.currentConv.participants?.find(p => p !== S.user.id);
     D.chatHeaderStatus.textContent = isOnline(otherUid) ? 'En línea' : 'Desconectado';
   }
 }
 
 function closeChat() {
-  S.unsubMsgs?.();
-  S.unsubTyping?.();
+  pb.collection('messages').unsubscribe('msgs');
+  pb.collection('typing').unsubscribe('typing');
   S.currentConv = null;
   S.msgEls.clear();
-  S.unsubMsgs = null;
-  S.unsubTyping = null;
   D.chatView.classList.add('hidden');
   D.bottomNav.classList.remove('hidden');
   D.chatInfoPanel.classList.add('hidden');
@@ -925,16 +954,25 @@ function loadMessages() {
   D.chatMessages.appendChild(D.emptyChat);
   D.emptyChat.classList.remove('hidden');
 
-  // Optimización: Filtrar directamente en el servidor de Firebase y limitar resultados
-  const q = query(
-    collection(db, 'messages'),
-    where('conversationId', '==', S.currentConv.id),
-    orderBy('timestamp', 'asc'),
-    limit(MSG_LIMIT)
-  );
+  pb.collection('messages').unsubscribe('msgs');
+  pb.collection('messages').subscribe('msgs', e => {
+    if (e.record.conversation !== S.currentConv?.id) return;
+    loadMessagesRealtime();
+  });
 
-  S.unsubMsgs = onSnapshot(q, snap => {
-    const hasMessages = !snap.empty;
+  loadMessagesRealtime();
+}
+
+async function loadMessagesRealtime() {
+  try {
+    const messages = await pb.collection('messages').getFullList({
+      filter: `conversation = "${S.currentConv.id}"`,
+      sort: 'created',
+      perPage: MSG_LIMIT,
+      expand: 'user,replyTo',
+    });
+
+    const hasMessages = messages.length > 0;
     D.emptyChat.classList.toggle('hidden', hasMessages);
 
     if (!hasMessages) {
@@ -947,58 +985,67 @@ function loadMessages() {
 
     D.chatMessages.innerHTML = '';
     S.msgEls.clear();
-    snap.forEach(d => {
+    messages.forEach(d => {
       const el = buildMsgEl(d);
       D.chatMessages.appendChild(el);
       S.msgEls.set(d.id, el);
     });
     scrollBottom();
 
-    markMessagesDelivered(snap.docs);
+    markMessagesDelivered(messages);
     applyFontSizeToChat();
-  }, err => {
-    console.error('[ChatNica] Error cargando mensajes:', err);
-  });
+  } catch (e) {
+    console.error('[ChatNica] Error cargando mensajes:', e);
+  }
 }
 
-function buildMsgEl(msgDoc) {
-  const d = msgDoc.data();
-  const id = msgDoc.id;
-  const isOwn = d.uid === S.user.uid;
-  const color = d.color || getUserColor(d.uid);
+function buildMsgEl(msg) {
+  const isOwn = msg.user === S.user.id;
+  const userExpand = msg.expand?.user;
+  const color = userExpand?.color || getUserColor(msg.user);
+  const displayName = userExpand?.displayName || 'Usuario';
+  const photoURL = userExpand ? getFileURL(userExpand, 'photoURL') : null;
   const isGroup = S.currentConv?.type === 'group';
+
+  const replyExpand = msg.expand?.replyTo;
+  const replyUser = replyExpand?.expand?.user?.displayName || replyExpand?.replyToUserName || 'Usuario';
+  const replyText = replyExpand?.text || '';
 
   const wrap = document.createElement('div');
   wrap.className = `msg-wrapper ${isOwn ? 'own' : 'other'}`;
-  wrap.dataset.msgId = id;
+  wrap.dataset.msgId = msg.id;
 
   const avatarHTML = (!isOwn && isGroup) ? `
     <div class="msg-avatar" style="background:${color}">
-      ${d.photoURL ? `<img src="${esc(d.photoURL)}" alt="">` : getInitials(d.user)}
+      ${photoURL ? `<img src="${esc(photoURL)}" alt="">` : getInitials(displayName)}
     </div>` : '';
 
-  const replyHTML = d.replyTo ? `
+  const replyHTML = msg.replyTo ? `
     <div class="reply-ctx">
-      <div class="reply-ctx-name">${esc(d.replyTo.user)}</div>
-      <div class="reply-ctx-text">${esc(d.replyTo.text || '📷 Imagen')}</div>
+      <div class="reply-ctx-name">${esc(replyUser)}</div>
+      <div class="reply-ctx-text">${esc(replyText || '📷 Imagen')}</div>
     </div>` : '';
 
-  const imgHTML = d.image ? `<img src="${esc(d.image)}" class="msg-img" alt="imagen" data-fullurl="${esc(d.image)}">` : '';
-  const videoHTML = d.video ? `<video src="${esc(d.video)}" controls class="msg-video" preload="metadata"></video>` : '';
-  const audioHTML = d.audio ? `<audio src="${esc(d.audio)}" controls class="msg-audio"></audio>` : '';
+  const imageSrc = getFileURL(msg, 'image');
+  const videoSrc = getFileURL(msg, 'video');
+  const audioSrc = getFileURL(msg, 'audio');
 
-  const reactHTML = buildReactHTML(d.reactions || {}, id);
+  const imgHTML = imageSrc ? `<img src="${esc(imageSrc)}" class="msg-img" alt="imagen" data-fullurl="${esc(imageSrc)}">` : '';
+  const videoHTML = videoSrc ? `<video src="${esc(videoSrc)}" controls class="msg-video" preload="metadata"></video>` : '';
+  const audioHTML = audioSrc ? `<audio src="${esc(audioSrc)}" controls class="msg-audio"></audio>` : '';
 
-  const tickHTML = isOwn ? `<span class="msg-tick" data-msg-id="${id}" data-status="${esc(d.status || 'sent')}">${getTickIcon(d.status || 'sent')}</span>` : '';
+  const reactHTML = buildReactHTML(msg.reactions || {}, msg.id);
+
+  const tickHTML = isOwn ? `<span class="msg-tick" data-msg-id="${msg.id}" data-status="${esc(msg.status || 'sent')}">${getTickIcon(msg.status || 'sent')}</span>` : '';
 
   const actBtns = `
     <div class="msg-actions">
-      <button class="msg-act-btn react-trigger" data-msg-id="${id}" title="Reaccionar">😊</button>
-      <button class="msg-act-btn reply-trigger" data-msg-id="${id}" data-msg-text="${esc(d.text || '')}" data-msg-user="${esc(d.user)}" title="Responder">↩</button>
-      ${isOwn ? `<button class="msg-act-btn delete-trigger" data-msg-id="${id}" title="Borrar">🗑</button>` : ''}
+      <button class="msg-act-btn react-trigger" data-msg-id="${msg.id}" title="Reaccionar">😊</button>
+      <button class="msg-act-btn reply-trigger" data-msg-id="${msg.id}" data-msg-text="${esc(msg.text || '')}" data-msg-user="${esc(displayName)}" title="Responder">↩</button>
+      ${isOwn ? `<button class="msg-act-btn delete-trigger" data-msg-id="${msg.id}" title="Borrar">🗑</button>` : ''}
     </div>`;
 
-  const senderHTML = (!isOwn && isGroup) ? `<div class="msg-sender" style="color:${color}">${esc(d.user || 'Usuario')}</div>` : '';
+  const senderHTML = (!isOwn && isGroup) ? `<div class="msg-sender" style="color:${color}">${esc(displayName)}</div>` : '';
 
   wrap.innerHTML = `
     ${avatarHTML}
@@ -1009,9 +1056,9 @@ function buildMsgEl(msgDoc) {
       ${imgHTML}
       ${videoHTML}
       ${audioHTML}
-      ${d.text ? `<div class="msg-text">${esc(d.text)}</div>` : ''}
+      ${msg.text ? `<div class="msg-text">${esc(msg.text)}</div>` : ''}
       <div class="msg-foot">
-        <span class="msg-time">${fmtTime(d.timestamp)}</span>
+        <span class="msg-time">${fmtTime(msg.created)}</span>
         ${tickHTML}
       </div>
       ${reactHTML}
@@ -1026,7 +1073,7 @@ function buildMsgEl(msgDoc) {
     const target = e.target.closest('.msg-wrapper');
     document.querySelectorAll('.msg-wrapper.show-actions').forEach(w => w.classList.remove('show-actions'));
     if (target) target.classList.add('show-actions');
-    pt = setTimeout(() => showPickerFor(id, wrap), 500);
+    pt = setTimeout(() => showPickerFor(msg.id, wrap), 500);
   }, { passive: true });
   wrap.addEventListener('touchend', () => clearTimeout(pt), { passive: true });
 
@@ -1034,11 +1081,11 @@ function buildMsgEl(msgDoc) {
 }
 
 function buildReactHTML(reactions, msgId) {
-  const entries = Object.entries(reactions).filter(([, uids]) => uids.length);
+  const entries = Object.entries(reactions).filter(([, uids]) => Array.isArray(uids) && uids.length);
   if (!entries.length) return '';
   return `<div class="react-bar">${
     entries.map(([emoji, uids]) => {
-      const mine = uids.includes(S.user.uid);
+      const mine = uids.includes(S.user.id);
       return `<button class="react-chip${mine ? ' mine' : ''}" data-emoji="${emoji}" data-msg-id="${msgId}">${emoji} ${uids.length}</button>`;
     }).join('')
   }</div>`;
@@ -1069,47 +1116,35 @@ async function sendMessage() {
   D.sendLoading.classList.remove('hidden');
 
   try {
-    let imageUrl = null;
-    let videoUrl = null;
+    const formData = new FormData();
+    formData.append('conversation', S.currentConv.id);
+    formData.append('text', text || '');
+    formData.append('user', S.user.id);
+    formData.append('reactions', JSON.stringify({}));
+    formData.append('status', 'sent');
+
+    if (S.replyTo) {
+      formData.append('replyTo', S.replyTo.id);
+      formData.append('replyToUserName', S.replyTo.user || '');
+    }
+
     if (fileToSend) {
       const blob = await compressImage(fileToSend);
-      const sRef = ref(storage, `chats/${S.currentConv.id}/${Date.now()}_${fileToSend.name}`);
-      const result = await uploadBytes(sRef, blob);
-      imageUrl = await getDownloadURL(result.ref);
+      formData.append('image', blob, fileToSend.name);
     }
     if (videoToSend) {
-      const sRef = ref(storage, `chats/${S.currentConv.id}/${Date.now()}_${videoToSend.name}`);
-      const result = await uploadBytes(sRef, videoToSend);
-      videoUrl = await getDownloadURL(result.ref);
+      formData.append('video', videoToSend);
     }
 
-    const msg = {
-      conversationId: S.currentConv.id,
-      text: text || null,
-      image: imageUrl || null,
-      video: videoUrl || null,
-      audio: null,
-      user: S.profile?.displayName || 'Anónimo',
-      photoURL: S.profile?.photoURL || null,
-      uid: S.user.uid,
-      color: S.profile?.color || getUserColor(S.user.uid),
-      timestamp: serverTimestamp(),
-      reactions: {},
-      replyTo: S.replyTo || null,
-      status: 'sent'
-    };
-
-    console.log('[ChatNica] Enviando mensaje:', JSON.stringify(msg, null, 2));
-    const docRef = await addDoc(collection(db, 'messages'), msg);
-    console.log('[ChatNica] Mensaje guardado con ID:', docRef.id);
+    await pb.collection('messages').create(formData);
 
     let lastMsgText = text;
     if (isVideo) lastMsgText = '🎬 Video';
     else if (isImage) lastMsgText = '📷 Imagen';
 
-    await updateDoc(doc(db, 'conversations', S.currentConv.id), {
+    await pb.collection('conversations').update(S.currentConv.id, {
       lastMessage: lastMsgText || (isVideo ? '🎬 Video' : '📷 Imagen'),
-      lastMessageTime: serverTimestamp()
+      lastMessageTime: new Date().toISOString(),
     });
 
     D.messageInput.value = '';
@@ -1118,7 +1153,7 @@ async function sendMessage() {
     setTyping(false);
   } catch (e) {
     console.error('[ChatNica] send:', e);
-    showToast('Error al enviar: ' + e.message);
+    showToast('Error al enviar: ' + (e.message || e));
   } finally {
     D.btnSend.disabled = false;
     D.sendIcon.classList.remove('hidden');
@@ -1129,29 +1164,21 @@ async function sendMessage() {
 async function deleteMessage(id) {
   if (!confirm('¿Borrar este mensaje?')) return;
   try {
-    await deleteDoc(doc(db, 'messages', id));
+    await pb.collection('messages').delete(id);
     showToast('Mensaje eliminado');
-  } catch (e) { showToast('Error: ' + e.message); }
+  } catch (e) { showToast('Error: ' + (e.message || e)); }
 }
 
-async function markMessagesDelivered(allDocs) {
+async function markMessagesDelivered(allMsgs) {
   if (!S.currentConv) return;
-  const notOwnNotDelivered = allDocs.filter(d => {
-    const data = d.data();
-    return data.uid !== S.user.uid && (!data.status || data.status === 'sent');
+  const notOwnNotDelivered = allMsgs.filter(d => {
+    return d.user !== S.user.id && (!d.status || d.status === 'sent');
   });
   for (const d of notOwnNotDelivered) {
     try {
-      await updateDoc(doc(db, 'messages', d.id), { status: 'read' });
+      await pb.collection('messages').update(d.id, { status: 'read' });
     } catch (e) {}
   }
-}
-
-function updateTicksVisual() {
-  document.querySelectorAll('.msg-tick[data-msg-id]').forEach(tick => {
-    const status = tick.dataset.status;
-    tick.textContent = getTickIcon(status);
-  });
 }
 
 // ─────────────────────────────────────────────
@@ -1189,13 +1216,12 @@ const hidePicker = () => { D.reactionPopover.classList.add('hidden'); S.pickerTa
 
 async function toggleReaction(msgId, emoji) {
   hidePicker();
-  const msgRef = doc(db, 'messages', msgId);
   try {
-    const snap = await getDoc(msgRef);
-    if (!snap.exists()) return;
-    const curr = snap.data().reactions?.[emoji] || [];
-    const op = curr.includes(S.user.uid) ? arrayRemove(S.user.uid) : arrayUnion(S.user.uid);
-    await updateDoc(msgRef, { [`reactions.${emoji}`]: op });
+    const msg = await pb.collection('messages').getOne(msgId);
+    const curr = msg.reactions?.[emoji] || [];
+    const op = curr.includes(S.user.id) ? curr.filter(u => u !== S.user.id) : [...curr, S.user.id];
+    const newReactions = { ...(msg.reactions || {}), [emoji]: op };
+    await pb.collection('messages').update(msgId, { reactions: newReactions });
   } catch (e) { console.error('[ChatNica] reaction:', e); }
 }
 
@@ -1210,25 +1236,37 @@ function onType() {
 
 async function setTyping(active) {
   if (!S.user || !S.currentConv) return;
-  const tRef = doc(db, 'typing', S.currentConv.id);
   try {
+    let typingRecord = await pb.collection('typing').getFirstListItem(`conversation = "${S.currentConv.id}"`).catch(() => null);
+
+    const typers = typingRecord?.typers || {};
     if (active) {
-      await setDoc(tRef, { [S.user.uid]: { name: S.profile.displayName, ts: serverTimestamp() } }, { merge: true });
+      typers[S.user.id] = { name: S.profile?.displayName || 'Usuario', ts: new Date().toISOString() };
     } else {
-      const snap = await getDoc(tRef);
-      if (snap.exists()) await updateDoc(tRef, { [S.user.uid]: deleteField() }).catch(() => {});
+      delete typers[S.user.id];
+    }
+
+    if (typingRecord) {
+      await pb.collection('typing').update(typingRecord.id, { typers });
+    } else if (active) {
+      await pb.collection('typing').create({
+        conversation: S.currentConv.id,
+        typers: { [S.user.id]: { name: S.profile?.displayName || 'Usuario', ts: new Date().toISOString() } },
+      });
     }
   } catch (e) {}
 }
 
 function subscribeTyping() {
-  S.unsubTyping?.();
+  pb.collection('typing').unsubscribe('typing');
   if (!S.currentConv) return;
-  S.unsubTyping = onSnapshot(doc(db, 'typing', S.currentConv.id), snap => {
-    if (!snap.exists()) { D.typingIndicator.classList.add('hidden'); return; }
+
+  pb.collection('typing').subscribe('typing', e => {
+    if (e.record.conversation !== S.currentConv?.id) return;
+    const typersData = e.record.typers || {};
     const stale = Date.now() - 5500;
-    const typers = Object.entries(snap.data())
-      .filter(([uid, v]) => uid !== S.user.uid && (v.ts?.toMillis?.() || 0) > stale)
+    const typers = Object.entries(typersData)
+      .filter(([uid, v]) => uid !== S.user.id && new Date(v.ts).getTime() > stale)
       .map(([, v]) => v.name);
     D.typingIndicator.classList.toggle('hidden', typers.length === 0);
     if (typers.length) {
@@ -1237,6 +1275,8 @@ function subscribeTyping() {
         : typers.length === 2
           ? `${typers[0]} y ${typers[1]} están escribiendo...`
           : 'Varios están escribiendo...';
+    } else {
+      D.typingIndicator.classList.add('hidden');
     }
   });
 }
@@ -1272,26 +1312,21 @@ async function uploadVoiceNote(file) {
   D.btnSend.disabled = true;
   D.sendLoading.classList.remove('hidden');
   try {
-    const sRef = ref(storage, `voice/${S.currentConv.id}/${Date.now()}.webm`);
-    const res = await uploadBytes(sRef, file);
-    const url = await getDownloadURL(res.ref);
-    await addDoc(collection(db, 'messages'), {
-      conversationId: S.currentConv.id,
-      audio: url, text: null, image: null, video: null,
-      user: S.profile?.displayName || 'Anónimo',
-      photoURL: S.profile?.photoURL || null,
-      uid: S.user.uid,
-      color: S.profile?.color || getUserColor(S.user.uid),
-      timestamp: serverTimestamp(), reactions: {}, replyTo: null,
-      status: 'sent'
-    });
-    await updateDoc(doc(db, 'conversations', S.currentConv.id), {
+    const formData = new FormData();
+    formData.append('conversation', S.currentConv.id);
+    formData.append('audio', file);
+    formData.append('user', S.user.id);
+    formData.append('reactions', JSON.stringify({}));
+    formData.append('status', 'sent');
+
+    await pb.collection('messages').create(formData);
+    await pb.collection('conversations').update(S.currentConv.id, {
       lastMessage: '🎤 Nota de voz',
-      lastMessageTime: serverTimestamp()
+      lastMessageTime: new Date().toISOString(),
     });
   } catch (e) {
     console.error('[ChatNica] uploadVoiceNote:', e);
-    showToast('Error al enviar nota de voz: ' + e.message);
+    showToast('Error al enviar nota de voz: ' + (e.message || e));
   } finally {
     D.btnSend.disabled = false;
     D.sendLoading.classList.add('hidden');
@@ -1347,34 +1382,35 @@ async function openChatInfo() {
   let html = '';
 
   if (isGroup) {
+    const participants = S.currentConv.expand?.participants || [];
     html += `<div class="text-center mb-6">
       <div class="profile-avatar-large mx-auto mb-3" style="background:#004A99">
-        ${S.currentConv.photoURL ? `<img src="${esc(S.currentConv.photoURL)}" alt="">` : getInitials(S.currentConv.name || 'G')}
+        ${getInitials(S.currentConv.name || 'G')}
       </div>
       <h3 class="text-lg font-bold">${esc(S.currentConv.name || 'Grupo')}</h3>
-      <p class="text-sm text-nica-muted">${S.currentConv.participants?.length || 0} participantes</p>
+      <p class="text-sm text-nica-muted">${participants.length} participantes</p>
     </div>`;
   }
 
   html += '<h4 class="text-sm font-bold text-nica-muted uppercase tracking-wider mb-3">Participantes</h4>';
 
-  for (const uid of (S.currentConv.participants || [])) {
-    const snap = await getDoc(doc(db, 'users', uid));
-    const data = snap.data() || {};
-    const online = isOnline(uid);
+  const participants = S.currentConv.expand?.participants || [];
+  for (const user of participants) {
+    const online = isOnline(user.id);
+    const photoURL = getFileURL(user, 'photoURL');
     html += `
       <div class="chat-info-member">
-        <div class="chat-info-avatar" style="background:${data.color || getUserColor(uid)}">
-          ${data.photoURL ? `<img src="${esc(data.photoURL)}" alt="">` : getInitials(data.displayName || 'U')}
+        <div class="chat-info-avatar" style="background:${user.color || getUserColor(user.id)}">
+          ${photoURL ? `<img src="${esc(photoURL)}" alt="">` : getInitials(user.displayName || 'U')}
         </div>
         <div class="flex-1">
-          <div class="text-sm font-bold">${esc(data.displayName || 'Usuario')}${uid === S.user.uid ? ' (Tú)' : ''}</div>
+          <div class="text-sm font-bold">${esc(user.displayName || 'Usuario')}${user.id === S.user.id ? ' (Tú)' : ''}</div>
           <div class="text-xs text-nica-muted">${online ? 'En línea' : 'Desconectado'}</div>
         </div>
       </div>`;
   }
 
-  if (isGroup && S.currentConv.createdBy === S.user.uid) {
+  if (isGroup && S.currentConv.createdBy === S.user.id) {
     html += `
       <button id="btn-invite-to-group" class="auth-btn-primary mt-4">Invitar más personas</button>
       <button id="btn-leave-group" class="auth-btn-primary mt-2" style="background:linear-gradient(135deg,#EF4444,#DC2626)">Salir del grupo</button>`;
@@ -1386,16 +1422,19 @@ async function openChatInfo() {
   D.chatInfoContent.querySelector('#btn-leave-group')?.addEventListener('click', async () => {
     if (!confirm('¿Seguro que quieres salir del grupo?')) return;
     try {
-      const newParticipants = S.currentConv.participants.filter(p => p !== S.user.uid);
+      const participants = S.currentConv.expand?.participants || [];
+      const newParticipants = participants
+        .filter(p => p.id !== S.user.id)
+        .map(p => p.id);
       if (newParticipants.length === 0) {
-        await deleteDoc(doc(db, 'conversations', S.currentConv.id));
+        await pb.collection('conversations').delete(S.currentConv.id);
       } else {
-        await updateDoc(doc(db, 'conversations', S.currentConv.id), { participants: newParticipants });
+        await pb.collection('conversations').update(S.currentConv.id, { participants: newParticipants });
       }
       closeChat();
       D.chatInfoPanel.classList.add('hidden');
       showToast('Saliste del grupo');
-    } catch (e) { showToast('Error: ' + e.message); }
+    } catch (e) { showToast('Error: ' + (e.message || e)); }
   });
 }
 
@@ -1417,24 +1456,26 @@ function subscribeFeed() {
       return;
     }
 
-    const q = query(
-      collection(db, 'posts'),
-      where('uid', 'in', contactUids.length <= 10 ? contactUids : contactUids.slice(0, 10))
-    );
-
-    S.unsubFeed = onSnapshot(q, snap => {
-      const posts = [];
-      snap.forEach(d => posts.push({ id: d.id, ...d.data() }));
-      posts.sort((a, b) => {
-        const ta = a.timestamp?.toMillis?.() || 0;
-        const tb = b.timestamp?.toMillis?.() || 0;
-        return tb - ta;
-      });
-      renderFeed(posts);
-    }, err => {
-      console.error('[ChatNica] feed error:', err);
+    pb.collection('posts').subscribe('feed', () => {
+      loadFeed(contactUids);
     });
+
+    loadFeed(contactUids);
   });
+}
+
+async function loadFeed(contactUids) {
+  try {
+    const filterParts = contactUids.slice(0, 10).map(uid => `uid = "${uid}"`).join(' || ');
+    const posts = await pb.collection('posts').getFullList({
+      filter: filterParts,
+      sort: '-created',
+      expand: 'uid',
+    });
+    renderFeed(posts);
+  } catch (e) {
+    console.error('[ChatNica] feed error:', e);
+  }
 }
 
 function renderFeed(posts) {
@@ -1450,19 +1491,24 @@ function renderFeed(posts) {
 }
 
 function postCardHTML(p) {
-  const color = p.color || getUserColor(p.uid);
-  const name = esc(p.userName || 'Usuario');
-  const time = p.timestamp ? fmtTimeAgo(p.timestamp) : '';
-  const liked = p.likes?.includes(S.user.uid);
+  const userExpand = p.expand?.uid;
+  const color = userExpand?.color || getUserColor(p.uid);
+  const name = esc(userExpand?.displayName || 'Usuario');
+  const time = p.created ? fmtTimeAgo(p.created) : '';
+  const liked = p.likes?.includes(S.user.id);
   const likeCount = p.likes?.length || 0;
   const commentCount = p.comments?.length || 0;
 
-  const avatarInner = p.userPhotoURL
-    ? `<img src="${esc(p.userPhotoURL)}" alt="">`
-    : getInitials(p.userName || 'U');
+  const photoURL = userExpand ? getFileURL(userExpand, 'photoURL') : null;
+  const avatarInner = photoURL
+    ? `<img src="${esc(photoURL)}" alt="">`
+    : getInitials(userExpand?.displayName || 'U');
 
   const imagesHTML = p.images?.length
-    ? `<div class="post-images">${p.images.map(img => `<img src="${esc(img)}" alt="" onclick="window.open('${esc(img)}','_blank','noopener,noreferrer')">`).join('')}</div>`
+    ? `<div class="post-images">${p.images.map((img, i) => {
+        const url = getMultiFileURL(p, 'images', i);
+        return `<img src="${esc(url)}" alt="" onclick="window.open('${esc(url)}','_blank','noopener,noreferrer')">`;
+      }).join('')}</div>`
     : '';
 
   const commentsHTML = p.comments?.length
@@ -1512,60 +1558,52 @@ async function createPost(text, images) {
   D.btnPublish.disabled = true;
   D.btnPublish.textContent = 'Publicando...';
   try {
-    const imageUrls = [];
+    const formData = new FormData();
+    formData.append('uid', S.user.id);
+    formData.append('text', text || '');
+    formData.append('likes', JSON.stringify([]));
+    formData.append('comments', JSON.stringify([]));
+
     for (const file of images) {
       const blob = await compressImage(file);
-      const sRef = ref(storage, `posts/${S.user.uid}/${Date.now()}_${file.name}`);
-      const result = await uploadBytes(sRef, blob);
-      imageUrls.push(await getDownloadURL(result.ref));
+      formData.append('images', blob, file.name);
     }
-    await addDoc(collection(db, 'posts'), {
-      uid: S.user.uid,
-      userName: S.profile.displayName,
-      userPhotoURL: S.profile.photoURL || null,
-      color: S.profile.color || getUserColor(S.user.uid),
-      text: text || null,
-      images: imageUrls,
-      likes: [],
-      comments: [],
-      timestamp: serverTimestamp()
-    });
+
+    await pb.collection('posts').create(formData);
     showToast('Publicación creada');
     closeModal(D.modalNewPost);
     D.postText.value = '';
     D.postImages.value = '';
     D.postImagesPreview.innerHTML = '';
     D.postImagesPreview.classList.add('hidden');
-  } catch (e) { showToast('Error: ' + e.message); }
+  } catch (e) { showToast('Error: ' + (e.message || e)); }
   finally { D.btnPublish.disabled = false; D.btnPublish.textContent = 'Publicar'; }
 }
 
 async function toggleLike(postId) {
-  const postRef = doc(db, 'posts', postId);
   try {
-    const snap = await getDoc(postRef);
-    if (!snap.exists()) return;
-    const likes = snap.data().likes || [];
-    const op = likes.includes(S.user.uid) ? arrayRemove(S.user.uid) : arrayUnion(S.user.uid);
-    await updateDoc(postRef, { likes: op });
+    const post = await pb.collection('posts').getOne(postId);
+    const likes = post.likes || [];
+    const op = likes.includes(S.user.id) ? likes.filter(u => u !== S.user.id) : [...likes, S.user.id];
+    await pb.collection('posts').update(postId, { likes: op });
   } catch (e) { console.error(e); }
 }
 
 async function addComment(postId, text) {
   if (!text.trim()) return;
-  const postRef = doc(db, 'posts', postId);
   try {
-    await updateDoc(postRef, {
-      comments: arrayUnion({
-        uid: S.user.uid,
-        userName: S.profile.displayName,
-        userPhotoURL: S.profile.photoURL || null,
-        color: S.profile.color || getUserColor(S.user.uid),
-        text: text.trim(),
-        timestamp: new Date().toISOString()
-      })
+    const post = await pb.collection('posts').getOne(postId);
+    const comments = post.comments || [];
+    comments.push({
+      uid: S.user.id,
+      userName: S.profile.displayName,
+      userPhotoURL: getFileURL(S.profile, 'photoURL'),
+      color: S.profile.color || getUserColor(S.user.id),
+      text: text.trim(),
+      timestamp: new Date().toISOString(),
     });
-  } catch (e) { showToast('Error: ' + e.message); }
+    await pb.collection('posts').update(postId, { comments });
+  } catch (e) { showToast('Error: ' + (e.message || e)); }
 }
 
 // ─────────────────────────────────────────────
@@ -1573,18 +1611,27 @@ async function addComment(postId, text) {
 // ─────────────────────────────────────────────
 function subscribeStories() {
   S.unsubStories?.();
-  const expiresAt = Timestamp.fromMillis(Date.now());
-  const q = query(collection(db, 'stories'), where('expiresAt', '>', expiresAt));
-  S.unsubStories = onSnapshot(q, snap => {
-    const stories = [];
-    snap.forEach(d => stories.push({ id: d.id, ...d.data() }));
+
+  pb.collection('stories').subscribe('stories', () => {
+    loadStories();
+  });
+
+  loadStories();
+}
+
+async function loadStories() {
+  try {
+    const expiresAt = new Date().toISOString();
+    const stories = await pb.collection('stories').getFullList({
+      filter: `expiresAt > "${expiresAt}"`,
+    });
     const grouped = {};
     stories.forEach(s => {
       if (!grouped[s.uid]) grouped[s.uid] = [];
       grouped[s.uid].push(s);
     });
     renderStoriesBar(grouped);
-  });
+  } catch (e) {}
 }
 
 function renderStoriesBar(grouped) {
@@ -1605,9 +1652,9 @@ function renderStoriesBar(grouped) {
     contacts.forEach(c => contactUids.add(c.uid));
 
     for (const [uid, userStories] of Object.entries(grouped)) {
-      if (uid === S.user.uid || !contactUids.has(uid)) continue;
+      if (uid === S.user.id || !contactUids.has(uid)) continue;
       const first = userStories[0];
-      const seen = first.views?.includes(S.user.uid);
+      const seen = first.views?.includes(S.user.id);
       const color = first.color || getUserColor(uid);
       const name = first.userName || 'Usuario';
 
@@ -1647,107 +1694,102 @@ async function createStory(type, content) {
   D.btnPublishStory.disabled = true;
   D.btnPublishStory.textContent = 'Publicando...';
   try {
-    const expiresAt = Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000);
-    const data = {
-      uid: S.user.uid,
-      type,
-      userName: S.profile.displayName,
-      userPhotoURL: S.profile.photoURL || null,
-      color: S.profile.color || getUserColor(S.user.uid),
-      timestamp: serverTimestamp(),
-      expiresAt,
-      views: []
-    };
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const formData = new FormData();
+    formData.append('uid', S.user.id);
+    formData.append('type', type);
+    formData.append('expiresAt', expiresAt);
+    formData.append('views', JSON.stringify([]));
 
     if (type === 'image') {
       const blob = await compressImage(content);
-      const sRef = ref(storage, `stories/${S.user.uid}/${Date.now()}`);
-      const result = await uploadBytes(sRef, blob);
-      data.image = await getDownloadURL(result.ref);
+      formData.append('image', blob);
     } else {
-      data.text = content;
+      formData.append('text', content);
     }
 
-    await addDoc(collection(db, 'stories'), data);
+    await pb.collection('stories').create(formData);
     showToast('Estado publicado');
     closeModal(D.modalStory);
     D.storyImageInput.value = '';
     D.storyTextInput.value = '';
     D.storyImagePreview.innerHTML = '';
     D.storyImagePreview.classList.add('hidden');
-  } catch (e) { showToast('Error: ' + e.message); }
+  } catch (e) { showToast('Error: ' + (e.message || e)); }
   finally { D.btnPublishStory.disabled = false; D.btnPublishStory.textContent = 'Publicar estado'; }
 }
 
 async function viewStoriesForUser(uid) {
-  const expiresAt = Timestamp.fromMillis(Date.now());
-  const q = query(collection(db, 'stories'), where('expiresAt', '>', expiresAt));
-  const snap = await getDocs(q);
-  const stories = [];
-  snap.forEach(d => {
-    const data = d.data();
-    if (data.uid === uid) stories.push({ id: d.id, ...d.data() });
-  });
-  if (!stories.length) return;
+  const expiresAt = new Date().toISOString();
+  try {
+    const stories = await pb.collection('stories').getFullList({
+      filter: `uid = "${uid}" && expiresAt > "${expiresAt}"`,
+    });
+    if (!stories.length) return;
 
-  let currentIndex = 0;
+    let currentIndex = 0;
 
-  function renderStory(idx) {
-    const story = stories[idx];
-    D.viewStoryName.textContent = story.userName || 'Usuario';
-    D.viewStoryTime.textContent = fmtTimeAgo(story.timestamp);
+    function renderStory(idx) {
+      const story = stories[idx];
+      D.viewStoryName.textContent = story.userName || 'Usuario';
+      D.viewStoryTime.textContent = fmtTimeAgo(story.created);
 
-    const avatarInner = story.userPhotoURL
-      ? `<img src="${esc(story.userPhotoURL)}" alt="">`
-      : getInitials(story.userName || 'U');
-    D.viewStoryAvatar.innerHTML = `<div class="w-full h-full rounded-full" style="background:${story.color || getUserColor(uid)}">${avatarInner}</div>`;
+      const avatarInner = story.userPhotoURL
+        ? `<img src="${esc(story.userPhotoURL)}" alt="">`
+        : getInitials(story.userName || 'U');
+      D.viewStoryAvatar.innerHTML = `<div class="w-full h-full rounded-full" style="background:${story.color || getUserColor(uid)}">${avatarInner}</div>`;
 
-    if (story.type === 'image') {
-      D.viewStoryContent.innerHTML = `<img src="${esc(story.image)}" alt="estado">`;
-    } else {
-      D.viewStoryContent.innerHTML = `<div class="story-text-content">${esc(story.text)}</div>`;
-    }
-
-    if (story.uid === S.user.uid) {
-      D.viewStoryDelete.classList.remove('hidden');
-      D.viewStoryDelete.onclick = async () => {
-        if (!confirm('¿Borrar este estado?')) return;
-        await deleteDoc(doc(db, 'stories', story.id));
-        stories.splice(idx, 1);
-        if (stories.length === 0) {
-          D.modalViewStory.classList.add('hidden');
-          showToast('Estado eliminado');
-        } else {
-          if (currentIndex >= stories.length) currentIndex = stories.length - 1;
-          renderStory(currentIndex);
-        }
-      };
-    } else {
-      D.viewStoryDelete.classList.add('hidden');
-      if (!story.views?.includes(S.user.uid)) {
-        updateDoc(doc(db, 'stories', story.id), { views: arrayUnion(S.user.uid) }).catch(() => {});
+      if (story.type === 'image') {
+        const imageSrc = getFileURL(story, 'image');
+        D.viewStoryContent.innerHTML = `<img src="${esc(imageSrc)}" alt="estado">`;
+      } else {
+        D.viewStoryContent.innerHTML = `<div class="story-text-content">${esc(story.text)}</div>`;
       }
+
+      if (story.uid === S.user.id) {
+        D.viewStoryDelete.classList.remove('hidden');
+        D.viewStoryDelete.onclick = async () => {
+          if (!confirm('¿Borrar este estado?')) return;
+          await pb.collection('stories').delete(story.id);
+          stories.splice(idx, 1);
+          if (stories.length === 0) {
+            D.modalViewStory.classList.add('hidden');
+            showToast('Estado eliminado');
+          } else {
+            if (currentIndex >= stories.length) currentIndex = stories.length - 1;
+            renderStory(currentIndex);
+          }
+        };
+      } else {
+        D.viewStoryDelete.classList.add('hidden');
+        if (!story.views?.includes(S.user.id)) {
+          const views = [...(story.views || []), S.user.id];
+          pb.collection('stories').update(story.id, { views }).catch(() => {});
+        }
+      }
+
+      D.modalViewStory.classList.remove('hidden');
     }
 
-    D.modalViewStory.classList.remove('hidden');
+    renderStory(0);
+
+    D.viewStoryContent.onclick = (e) => {
+      const rect = D.viewStoryContent.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const mid = rect.width / 2;
+      if (x < mid && currentIndex > 0) {
+        currentIndex--;
+        renderStory(currentIndex);
+      } else if (x >= mid && currentIndex < stories.length - 1) {
+        currentIndex++;
+        renderStory(currentIndex);
+      } else if (x >= mid) {
+        D.modalViewStory.classList.add('hidden');
+      }
+    };
+  } catch (e) {
+    console.error('[ChatNica] viewStoriesForUser:', e);
   }
-
-  renderStory(0);
-
-  D.viewStoryContent.onclick = (e) => {
-    const rect = D.viewStoryContent.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const mid = rect.width / 2;
-    if (x < mid && currentIndex > 0) {
-      currentIndex--;
-      renderStory(currentIndex);
-    } else if (x >= mid && currentIndex < stories.length - 1) {
-      currentIndex++;
-      renderStory(currentIndex);
-    } else if (x >= mid) {
-      D.modalViewStory.classList.add('hidden');
-    }
-  };
 }
 
 // ─────────────────────────────────────────────
@@ -1759,12 +1801,13 @@ function openEditProfile() {
   D.editCity.value = S.profile.city || '';
   D.editDepartment.value = S.profile.department || '';
 
-  if (S.profile.photoURL) {
-    D.editProfileAvatar.innerHTML = `<img src="${esc(S.profile.photoURL)}" alt="" class="w-full h-full object-cover">`;
+  const photoURL = getFileURL(S.profile, 'photoURL');
+  if (photoURL) {
+    D.editProfileAvatar.innerHTML = `<img src="${esc(photoURL)}" alt="" class="w-full h-full object-cover">`;
     D.editProfileAvatar.style.background = 'transparent';
   } else {
     D.editProfileAvatar.textContent = getInitials(S.profile.displayName);
-    D.editProfileAvatar.style.background = S.profile.color || getUserColor(S.user.uid);
+    D.editProfileAvatar.style.background = S.profile.color || getUserColor(S.user.id);
   }
 
   openModal(D.modalEditProfile);
@@ -1782,16 +1825,16 @@ async function saveProfile() {
       displayName: name,
       bio: D.editBio.value.trim(),
       city: D.editCity.value.trim(),
-      department: D.editDepartment.value
+      department: D.editDepartment.value,
     };
 
-    await updateDoc(doc(db, 'users', S.user.uid), updates);
+    await pb.collection('users').update(S.user.id, updates);
     S.profile = { ...S.profile, ...updates };
     updateHeader();
     updateProfileTab();
     closeModal(D.modalEditProfile);
     showToast('Perfil actualizado');
-  } catch (e) { showToast('Error: ' + e.message); }
+  } catch (e) { showToast('Error: ' + (e.message || e)); }
   finally { D.btnSaveProfile.disabled = false; D.btnSaveProfile.textContent = 'Guardar cambios'; }
 }
 
@@ -1799,20 +1842,19 @@ async function updateProfilePhoto(file) {
   if (!file || !ALLOWED_TYPES.includes(file.type)) return showToast('Solo imágenes.');
   try {
     const blob = await compressImage(file, 400, 0.85);
-    const sRef = ref(storage, `profiles/${S.user.uid}/photo`);
-    const result = await uploadBytes(sRef, blob);
-    const url = await getDownloadURL(result.ref);
-    await updateDoc(doc(db, 'users', S.user.uid), { photoURL: url });
-    S.profile = { ...S.profile, photoURL: url };
+    await pb.collection('users').update(S.user.id, { photoURL: blob });
+    const updated = await pb.collection('users').getOne(S.user.id);
+    S.profile = { ...S.profile, ...updated };
     updateHeader();
     updateProfileTab();
 
-    if (S.profile.photoURL) {
-      D.editProfileAvatar.innerHTML = `<img src="${esc(url)}" alt="" class="w-full h-full object-cover">`;
+    const photoURL = getFileURL(S.profile, 'photoURL');
+    if (photoURL) {
+      D.editProfileAvatar.innerHTML = `<img src="${esc(photoURL)}" alt="" class="w-full h-full object-cover">`;
       D.editProfileAvatar.style.background = 'transparent';
     }
     showToast('Foto actualizada');
-  } catch (e) { showToast('Error: ' + e.message); }
+  } catch (e) { showToast('Error: ' + (e.message || e)); }
 }
 
 // ─────────────────────────────────────────────
@@ -1834,8 +1876,9 @@ async function openSelectContactModal() {
     D.selectContactList.innerHTML = contacts.map(c => {
       const color = c.color || getUserColor(c.uid);
       const name = esc(c.displayName || 'Usuario');
-      const avatarInner = c.photoURL
-        ? `<img src="${esc(c.photoURL)}" alt="" class="w-full h-full object-cover">`
+      const photoURL = getFileURL(c, 'photoURL');
+      const avatarInner = photoURL
+        ? `<img src="${esc(photoURL)}" alt="" class="w-full h-full object-cover">`
         : getInitials(c.displayName || 'U');
       return `
         <div class="group-member-select" data-uid="${c.uid}">
@@ -1858,8 +1901,9 @@ async function openCreateGroupModal() {
     D.groupMembersSelect.innerHTML = contacts.map(c => {
       const color = c.color || getUserColor(c.uid);
       const name = esc(c.displayName || 'Usuario');
-      const avatarInner = c.photoURL
-        ? `<img src="${esc(c.photoURL)}" alt="" class="w-full h-full object-cover">`
+      const photoURL = getFileURL(c, 'photoURL');
+      const avatarInner = photoURL
+        ? `<img src="${esc(photoURL)}" alt="" class="w-full h-full object-cover">`
         : getInitials(c.displayName || 'U');
       return `
         <label class="group-member-select">
@@ -1916,11 +1960,12 @@ D.contactsSearchInput?.addEventListener('input', e => {
     D.contactsPendingSection.classList.add('hidden');
     D.emptyContacts.classList.add('hidden');
     D.contactsDiscoverList.innerHTML = results.map(u => {
-      const color = u.color || getUserColor(u.uid);
+      const color = u.color || getUserColor(u.id);
       const name = esc(u.displayName || 'Usuario');
       const city = u.city ? esc(u.city) : '';
-      const avatarInner = u.photoURL
-        ? `<img src="${esc(u.photoURL)}" alt="" class="w-full h-full object-cover">`
+      const photoURL = getFileURL(u, 'photoURL');
+      const avatarInner = photoURL
+        ? `<img src="${esc(photoURL)}" alt="" class="w-full h-full object-cover">`
         : getInitials(u.displayName || 'U');
       return `
         <div class="contact-item">
@@ -1930,7 +1975,7 @@ D.contactsSearchInput?.addEventListener('input', e => {
             ${city ? `<div class="contact-city">${city}</div>` : ''}
           </div>
           <div class="contact-actions">
-            <button class="contact-btn contact-btn-chat" data-action="add-contact" data-uid="${u.uid}">Agregar</button>
+            <button class="contact-btn contact-btn-chat" data-action="add-contact" data-uid="${u.id}">Agregar</button>
           </div>
         </div>`;
     }).join('');
@@ -1945,14 +1990,21 @@ function startSession() {
   updateHeader();
   updateProfileTab();
   subscribePresence();
+  subscribeStories();
   updatePresence();
   S.presTimer = setInterval(updatePresence, PRESENCE_INTERVAL_MS);
   switchTab('chats');
 }
 
 function stopAllSubscriptions() {
-  S.unsubConvs?.(); S.unsubMsgs?.(); S.unsubContacts?.();
-  S.unsubFeed?.(); S.unsubStories?.(); S.unsubTyping?.();
+  pb.collection('conversations').unsubscribe('convs');
+  pb.collection('contacts').unsubscribe('contacts');
+  pb.collection('posts').unsubscribe('feed');
+  pb.collection('stories').unsubscribe('stories');
+  pb.collection('presence').unsubscribe('presence');
+  pb.collection('typing').unsubscribe('typing');
+  pb.collection('messages').unsubscribe('msgs');
+
   S.unsubConvs = S.unsubMsgs = S.unsubContacts = null;
   S.unsubFeed = S.unsubStories = S.unsubTyping = null;
   S.msgEls.clear();
@@ -1962,11 +2014,11 @@ function stopAllSubscriptions() {
 // ─────────────────────────────────────────────
 //  AUTH STATE LISTENER
 // ─────────────────────────────────────────────
-onAuthStateChanged(auth, async user => {
+pb.authStore.onChange(async () => {
   try {
-    if (user) {
-      S.user = user;
-      S.profile = await ensureProfile(user);
+    if (pb.authStore.isValid && pb.authStore.model) {
+      S.user = pb.authStore.model;
+      S.profile = await ensureProfile(S.user);
       showScreen('main');
       startSession();
     } else {
@@ -1977,8 +2029,7 @@ onAuthStateChanged(auth, async user => {
     }
   } catch (e) {
     console.error("[ChatNica] Auth error:", e);
-    showAuthError('login', friendlyError(e));
-    setAuthBusy(false, 'google');
+    showAuthError('login', friendlyError(e.message));
     showScreen('auth');
   }
 });
@@ -1989,7 +2040,6 @@ onAuthStateChanged(auth, async user => {
 (function init() {
   showScreen('loading');
 
-  // Auth
   D.btnGoogle.addEventListener('click', loginWithGoogle);
   D.loginBtn.addEventListener('click', loginWithEmail);
   D.regBtn.addEventListener('click', registerWithEmail);
@@ -2000,21 +2050,17 @@ onAuthStateChanged(auth, async user => {
     el.addEventListener('keydown', e => { if (e.key === 'Enter') loginWithEmail(); })
   );
 
-  // Navigation
   document.querySelectorAll('.nav-tab').forEach(tab => {
     tab.addEventListener('click', () => switchTab(tab.dataset.tab));
   });
 
-  // Header actions
   D.btnNew.addEventListener('click', openNewConvModal);
   D.btnReload.addEventListener('click', () => window.location.reload());
   D.headerAvatar.addEventListener('click', () => switchTab('profile'));
 
-  // New conversation
   D.btnNewDirect.addEventListener('click', openSelectContactModal);
   D.btnNewGroup.addEventListener('click', openCreateGroupModal);
 
-  // Create group
   D.btnCreateGroup.addEventListener('click', async () => {
     const name = D.groupName.value.trim();
     if (!name) return showToast('Ponle nombre al grupo.');
@@ -2023,26 +2069,21 @@ onAuthStateChanged(auth, async user => {
     try {
       const convId = await createGroup(name, members);
       closeModal(D.modalCreateGroup);
-      const snap = await getDoc(doc(db, 'conversations', convId));
-      if (snap.exists()) {
-        openChat(convId, { id: convId, ...snap.data() });
-      }
-    } catch (e) { showToast('Error: ' + e.message); }
+      const conv = await pb.collection('conversations').getOne(convId);
+      if (conv) openChat(convId, conv);
+    } catch (e) { showToast('Error: ' + (e.message || e)); }
   });
 
-  // Conversations list
   D.convsList.addEventListener('click', async e => {
     const item = e.target.closest('.conv-item');
     if (!item) return;
     const convId = item.dataset.convId;
-    const convType = item.dataset.convType;
-    const snap = await getDoc(doc(db, 'conversations', convId));
-    if (snap.exists()) {
-      openChat(convId, { id: convId, ...snap.data() });
-    }
+    try {
+      const conv = await pb.collection('conversations').getOne(convId, { expand: 'participants' });
+      if (conv) openChat(convId, conv);
+    } catch (e) {}
   });
 
-  // Contacts list
   document.getElementById('contacts-list').addEventListener('click', async e => {
     const addBtn = e.target.closest('[data-action="add-contact"]');
     if (addBtn) {
@@ -2060,47 +2101,40 @@ onAuthStateChanged(auth, async user => {
     const chatBtn = e.target.closest('[data-action="chat"]');
     if (chatBtn) {
       const convId = await getOrCreateDirectConv(chatBtn.dataset.uid);
-      const snap = await getDoc(doc(db, 'conversations', convId));
-      if (snap.exists()) openChat(convId, { id: convId, ...snap.data() });
+      const conv = await pb.collection('conversations').getOne(convId, { expand: 'participants' });
+      if (conv) openChat(convId, conv);
       return;
     }
   });
 
-  // Select contact for direct chat
   D.selectContactList.addEventListener('click', async e => {
     const item = e.target.closest('.group-member-select');
     if (!item) return;
     closeModal(D.modalSelectContact);
     const convId = await getOrCreateDirectConv(item.dataset.uid);
-    const snap = await getDoc(doc(db, 'conversations', convId));
-    if (snap.exists()) openChat(convId, { id: convId, ...snap.data() });
+    const conv = await pb.collection('conversations').getOne(convId, { expand: 'participants' });
+    if (conv) openChat(convId, conv);
   });
 
-  // Chat view
   D.chatBackBtn.addEventListener('click', closeChat);
   D.chatInfoBtn.addEventListener('click', openChatInfo);
   D.chatInfoBack.addEventListener('click', closeChatInfo);
 
-  // Send message
   D.messageForm.addEventListener('submit', e => { e.preventDefault(); sendMessage(); });
   D.messageInput.addEventListener('input', onType);
   D.messageInput.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   });
 
-  // Voice
   D.micBtn.addEventListener('click', startRecording);
   D.stopRecBtn.addEventListener('click', stopRecording);
 
-  // File
   D.imageInput.addEventListener('change', onFileChange);
   D.videoInput.addEventListener('change', onVideoChange);
   D.fileClearBtn.addEventListener('click', clearFilePreview);
 
-  // Reply
   D.cancelReply.addEventListener('click', clearReply);
 
-  // Delegated clicks in chat messages
   D.chatMessages.addEventListener('click', e => {
     const replyBtn = e.target.closest('.reply-trigger');
     if (replyBtn) { setReplyTo(replyBtn.dataset.msgId, replyBtn.dataset.msgText, replyBtn.dataset.msgUser); return; }
@@ -2112,7 +2146,6 @@ onAuthStateChanged(auth, async user => {
     if (chip) { toggleReaction(chip.dataset.msgId, chip.dataset.emoji); return; }
   });
 
-  // Reaction popover
   D.reactionPopover.addEventListener('click', e => {
     const btn = e.target.closest('[data-emoji]');
     if (btn && S.pickerTarget) toggleReaction(S.pickerTarget, btn.dataset.emoji);
@@ -2123,7 +2156,6 @@ onAuthStateChanged(auth, async user => {
         !e.target.closest('.react-trigger')) hidePicker();
   });
 
-  // Feed actions
   D.feedList.addEventListener('click', e => {
     const likeBtn = e.target.closest('.like-btn');
     if (likeBtn) { toggleLike(likeBtn.dataset.postId); return; }
@@ -2144,7 +2176,6 @@ onAuthStateChanged(auth, async user => {
     }
   });
 
-  // Post images preview
   D.postImages.addEventListener('change', () => {
     const files = D.postImages.files;
     if (!files.length) { D.postImagesPreview.classList.add('hidden'); return; }
@@ -2162,14 +2193,12 @@ onAuthStateChanged(auth, async user => {
     });
   });
 
-  // Publish post
   D.btnPublish.addEventListener('click', () => {
     const text = D.postText.value.trim();
     const files = D.postImages.files ? Array.from(D.postImages.files) : [];
     createPost(text, files);
   });
 
-  // Stories
   D.storyTypeImage.addEventListener('click', () => {
     D.storyTypeImage.classList.add('active');
     D.storyTypeText.classList.remove('active');
@@ -2208,7 +2237,6 @@ onAuthStateChanged(auth, async user => {
 
   D.viewStoryBack.addEventListener('click', () => D.modalViewStory.classList.add('hidden'));
 
-  // Profile
   D.btnEditProfile.addEventListener('click', openEditProfile);
   D.btnSaveProfile.addEventListener('click', saveProfile);
   D.profilePhotoInput.addEventListener('change', () => {
@@ -2216,10 +2244,9 @@ onAuthStateChanged(auth, async user => {
     if (file) updateProfilePhoto(file);
   });
   D.btnMyStories.addEventListener('click', () => {
-    viewStoriesForUser(S.user.uid);
+    viewStoriesForUser(S.user.id);
   });
 
-  // App Settings
   D.btnAppSettings.addEventListener('click', () => {
     const saved = localStorage.getItem('chatnica-font-size');
     const size = saved ? parseInt(saved) : DEFAULT_FONT_SIZE;
@@ -2245,21 +2272,18 @@ onAuthStateChanged(auth, async user => {
     showToast('Tamaño de texto restablecido');
   });
 
-  // Modals close
   document.querySelectorAll('.modal-close').forEach(btn => {
     btn.addEventListener('click', () => {
       btn.closest('.fixed').classList.add('hidden');
     });
   });
 
-  // Close modals on backdrop click
   [D.modalNewConv, D.modalCreateGroup, D.modalNewPost, D.modalStory, D.modalEditProfile, D.modalSelectContact, D.modalAppSettings].forEach(modal => {
     modal.addEventListener('click', e => {
       if (e.target === modal) modal.classList.add('hidden');
     });
   });
 
-  // Cleanup
   window.addEventListener('beforeunload', () => {
     setTyping(false);
     setPresenceOffline();
