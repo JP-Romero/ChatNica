@@ -5,5 +5,18 @@
   "scripts": {
     "pb": "cd pocketbase && pocketbase.exe serve",
     "migrate": "cd migration && npm install && node firebase-to-pb.mjs"
-  }
+  },
+  "main": "app.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JP-Romero/ChatNica.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/JP-Romero/ChatNica/issues"
+  },
+  "homepage": "https://github.com/JP-Romero/ChatNica#readme"
 }
