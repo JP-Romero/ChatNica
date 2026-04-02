@@ -10,4 +10,8 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
- 
+  "dependencies": {
+    "firebase-admin": "^13.7.0",
+    "pocketbase": "^0.26.8"
+  }
+}
