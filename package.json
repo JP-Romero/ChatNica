@@ -18,5 +18,9 @@
   "bugs": {
     "url": "https://github.com/JP-Romero/ChatNica/issues"
   },
-  "homepage": "https://github.com/JP-Romero/ChatNica#readme"
+  "homepage": "https://github.com/JP-Romero/ChatNica#readme",
+  "dependencies": {
+    "firebase-admin": "^13.7.0",
+    "pocketbase": "^0.26.8"
+  }
 }
