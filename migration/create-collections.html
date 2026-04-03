@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatNica - Crear Colecciones PocketBase</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+    .container { max-width: 800px; margin: 0 auto; }
+    h1 { color: #60a5fa; margin-bottom: 10px; }
+    .status { margin: 15px 0; padding: 12px 16px; border-radius: 8px; font-family: monospace; font-size: 14px; white-space: pre-wrap; word-break: break-all; }
+    .status.success { background: #064e3b; border: 1px solid #10b981; color: #6ee7b7; }
+    .status.error { background: #450a0a; border: 1px solid #ef4444; color: #fca5a5; }
+    .status.info { background: #1e3a5f; border: 1px solid #3b82f6; color: #93c5fd; }
+    .status.pending { background: #422006; border: 1px solid #f59e0b; color: #fcd34d; }
+    #log { margin-top: 20px; max-height: 500px; overflow-y: auto; }
+    button { background: #3b82f6; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 10px 5px 10px 0; }
+    button:hover { background: #2563eb; }
+    button:disabled { background: #4b5563; cursor: not-allowed; }
+    .progress { margin: 15px 0; }
+    .progress-bar { height: 8px; background: #374151; border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #3b82f6; transition: width 0.3s; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🗄️ ChatNica - Crear Colecciones</h1>
+    <p>Este script creará todas las colecciones necesarias para ChatNica en tu PocketBase.</p>
+    
+    <div style="margin: 20px 0;">
+      <label>PocketBase URL:</label><br>
+      <input type="text" id="pbUrl" value="http://127.0.0.1:8090" style="width: 100%; padding: 8px; margin: 5px 0 15px; background: #1f2937; border: 1px solid #374151; color: #e0e0e0; border-radius: 6px;">
+      
+      <label>Admin Email:</label><br>
+      <input type="text" id="adminEmail" value="mcalebr04@gmail.com" style="width: 100%; padding: 8px; margin: 5px 0 15px; background: #1f2937; border: 1px solid #374151; color: #e0e0e0; border-radius: 6px;">
+      
+      <label>Admin Password:</label><br>
+      <input type="password" id="adminPassword" value="Juan290683" style="width: 100%; padding: 8px; margin: 5px 0 15px; background: #1f2937; border: 1px solid #374151; color: #e0e0e0; border-radius: 6px;">
+    </div>
+
+    <button id="btnRun" onclick="run()">▶️ Ejecutar Creación de Colecciones</button>
+    <button id="btnClear" onclick="clearLog()" style="background: #6b7280;">🗑️ Limpiar Log</button>
+
+    <div class="progress" id="progressContainer" style="display: none;">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+      </div>
+      <span id="progressText" style="font-size: 12px; color: #9ca3af;">0/0</span>
+    </div>
+
+    <div id="log"></div>
+  </div>
+
+  <script type="module">
+    // Use latest master branch SDK which supports PocketBase 0.36+
+    import PocketBase from 'https://cdn.jsdelivr.net/gh/pocketbase/js-sdk@master/dist/pocketbase.es.mjs';
+
+    window.run = async function() {
+      const pbUrl = document.getElementById('pbUrl').value.replace(/\/$/, '');
+      const email = document.getElementById('adminEmail').value;
+      const password = document.getElementById('adminPassword').value;
+      const btn = document.getElementById('btnRun');
+      const progressContainer = document.getElementById('progressContainer');
+      const progressFill = document.getElementById('progressFill');
+      const progressText = document.getElementById('progressText');
+
+      btn.disabled = true;
+      progressContainer.style.display = 'block';
+      clearLog();
+
+      try {
+        const pb = new PocketBase(pbUrl);
+        
+        log('Iniciando sesión como admin...', 'info');
+        await pb.admins.authWithPassword(email, password);
+        log('✅ Autenticación exitosa', 'success');
+
+        // Get existing collections
+        log('Obteniendo colecciones existentes...', 'info');
+        const existingCollections = await pb.collections.getFullList();
+
+        const usersCollection = existingCollections.find(c => c.name === 'users');
+        if (!usersCollection) {
+          log('❌ Colección "users" no encontrada. Debes crearla primero como auth collection.', 'error');
+          btn.disabled = false;
+          return;
+        }
+        const U = usersCollection.id;
+        log(`✅ Colección "users" encontrada (ID: ${U})`, 'success');
+
+        // Define collections to create
+        const collections = [
+          {
+            name: 'contacts',
+            type: 'base',
+            listRule: '@request.auth.id != ""',
+            viewRule: '@request.auth.id != ""',
+            createRule: '@request.auth.id != "" && requester = @request.auth.id',
+            updateRule: '@request.auth.id != ""',
+            deleteRule: '@request.auth.id != ""',
+            fields: [
+              { name: 'requester', type: 'relation', required: true, options: { collectionId: U, cascadeDelete: true, maxSelect: 1, minSelect: 1 } },
+              { name: 'target', type: 'relation', required: true, options: { collectionId: U, cascadeDelete: true, maxSelect: 1, minSelect: 1 } },
+              { name: 'status', type: 'select', required: true, options: { values: ['pending', 'accepted'], maxSelect: 1 } },
+            ]
+          },
+          {
+            name: 'conversations',
+            type: 'base',
+            listRule: '@request.auth.id != "" && participants.id ?= @request.auth.id',
+            viewRule: '@request.auth.id != "" && participants.id ?= @request.auth.id',
+            createRule: '@request.auth.id != "" && participants.id ?= @request.auth.id',
+            updateRule: '@request.auth.id != "" && participants.id ?= @request.auth.id',
+            deleteRule: '@request.auth.id != "" && createdBy = @request.auth.id',
+            fields: [
+              { name: 'type', type: 'select', required: true, options: { values: ['direct', 'group'], maxSelect: 1 } },
+              { name: 'participants', type: 'relation', required: true, options: { collectionId: U, maxSelect: 100, cascadeDelete: false } },
+              { name: 'name', type: 'text', required: false },
+              { name: 'createdBy', type: 'relation', required: true, options: { collectionId: U, cascadeDelete: false, maxSelect: 1, minSelect: 1 } },
+              { name: 'lastMessage', type: 'text', required: false },
+              { name: 'lastMessageTime', type: 'date', required: false },
+            ]
+          },
+          {
+            name: 'posts',
+            type: 'base',
+            listRule: '@request.auth.id != ""',
+            viewRule: '@request.auth.id != ""',
+            createRule: '@request.auth.id != "" && uid = @request.auth.id',
+            updateRule: '@request.auth.id != "" && uid = @request.auth.id',
+            deleteRule: '@request.auth.id != "" && uid = @request.auth.id',
+            fields: [
+              { name: 'uid', type: 'relation', required: true, options: { collectionId: U, cascadeDelete: true, maxSelect: 1, minSelect: 1 } },
+              { name: 'text', type: 'text', required: false },
+              { name: 'images', type: 'file', required: false, options: { maxSelect: 10, maxSize: 5242880, mimeTypes: ['image/jpeg','image/png','image/gif','image/webp'] } },
+              { name: 'likes', type: 'json', required: false },
+              { name: 'comments', type: 'json', required: false },
+            ]
+          },
+          {
+            name: 'stories',
+            type: 'base',
+            listRule: '@request.auth.id != ""',
+            viewRule: '@request.auth.id != ""',
+            createRule: '@request.auth.id != "" && uid = @request.auth.id',
+            updateRule: '@request.auth.id != "" && uid = @request.auth.id',
+            deleteRule: '@request.auth.id != "" && uid = @request.auth.id',
+            fields: [
+              { name: 'uid', type: 'relation', required: true, options: { collectionId: U, cascadeDelete: true, maxSelect: 1, minSelect: 1 } },
+              { name: 'type', type: 'select', required: true, options: { values: ['image', 'text'], maxSelect: 1 } },
+              { name: 'image', type: 'file', required: false, options: { maxSelect: 1, maxSize: 5242880, mimeTypes: ['image/jpeg','image/png','image/gif','image/webp'] } },
+              { name: 'text', type: 'text', required: false },
+              { name: 'expiresAt', type: 'date', required: true },
+              { name: 'views', type: 'json', required: false },
+            ]
+          },
+          {
+            name: 'presence',
+            type: 'base',
+            listRule: '@request.auth.id != ""',
+            viewRule: '@request.auth.id != ""',
+            createRule: '@request.auth.id != "" && user = @request.auth.id',
+            updateRule: '@request.auth.id != "" && user = @request.auth.id',
+            deleteRule: '@request.auth.id != "" && user = @request.auth.id',
+            fields: [
+              { name: 'user', type: 'relation', required: true, options: { collectionId: U, cascadeDelete: true, maxSelect: 1, minSelect: 1 } },
+              { name: 'online', type: 'bool', required: false },
+              { name: 'lastSeen', type: 'date', required: false },
+            ],
+            indexes: ['CREATE UNIQUE INDEX idx_presence_user ON presence (user)']
+          },
+        ];
+
+        let collectionIds = {};
+        const totalSteps = collections.length + 3;
+        let currentStep = 0;
+
+        const updateProgress = () => {
+          currentStep++;
+          const pct = Math.round((currentStep / totalSteps) * 100);
+          progressFill.style.width = `${pct}%`;
+          progressText.textContent = `${currentStep}/${totalSteps}`;
+        };
+
+        // Create collections that only depend on users
+        for (const c of collections) {
+          const existing = existingCollections.find(col => col.name === c.name);
+          if (existing) {
+            log(`⏭️ Colección "${c.name}" ya existe, saltando`, 'info');
+            collectionIds[c.name] = existing.id;
+            updateProgress();
+            continue;
+          }
+
+          log(`Creando colección "${c.name}"...`, 'pending');
+          
+          try {
+            const result = await pb.collections.create({
+              name: c.name,
+              type: c.type,
+              listRule: c.listRule,
+              viewRule: c.viewRule,
+              createRule: c.createRule,
+              updateRule: c.updateRule,
+              deleteRule: c.deleteRule,
+              fields: c.fields,
+              indexes: c.indexes || [],
+            });
+            collectionIds[c.name] = result.id;
+            log(`✅ "${c.name}" creada (ID: ${result.id})`, 'success');
+          } catch (e) {
+            log(`❌ Error creando "${c.name}": ${e.message}\n${JSON.stringify(e.data || {}, null, 2)}`, 'error');
+          }
+          updateProgress();
+        }
+
+        // Create messages collection
+        const C = collectionIds.conversations || existingCollections.find(c => c.name === 'conversations')?.id;
+        if (!C) {
+          log('❌ No se encontró la colección "conversations"', 'error');
+          btn.disabled = false;
+          return;
+        }
+
+        const existingMessages = existingCollections.find(c => c.name === 'messages');
+        if (existingMessages) {
+          log('⏭️ Colección "messages" ya existe', 'info');
+          collectionIds.messages = existingMessages.id;
+        } else {
+          log('Creando colección "messages"...', 'pending');
+          
+          const messagesFields = [
+            { name: 'conversation', type: 'relation', required: true, options: { collectionId: C, cascadeDelete: true, maxSelect: 1, minSelect: 1 } },
+            { name: 'text', type: 'text', required: false },
+            { name: 'image', type: 'file', required: false, options: { maxSelect: 1, maxSize: 10485760, mimeTypes: ['image/jpeg','image/png','image/gif','image/webp'] } },
+            { name: 'video', type: 'file', required: false, options: { maxSelect: 1, maxSize: 10485760, mimeTypes: ['video/mp4','video/webm','video/quicktime'] } },
+            { name: 'audio', type: 'file', required: false, options: { maxSelect: 1, maxSize: 10485760, mimeTypes: ['audio/*'] } },
+            { name: 'user', type: 'relation', required: true, options: { collectionId: U, cascadeDelete: false, maxSelect: 1, minSelect: 1 } },
+            { name: 'replyTo', type: 'relation', required: false, options: { collectionId: C, cascadeDelete: false, maxSelect: 1 } },
+            { name: 'replyToUserName', type: 'text', required: false },
+            { name: 'reactions', type: 'json', required: false },
+            { name: 'status', type: 'select', required: false, options: { values: ['sent', 'delivered', 'read'], maxSelect: 1 } },
+          ];
+
+          try {
+            const result = await pb.collections.create({
+              name: 'messages',
+              type: 'base',
+              listRule: '@request.auth.id != ""',
+              viewRule: '@request.auth.id != ""',
+              createRule: '@request.auth.id != "" && user = @request.auth.id',
+              updateRule: '@request.auth.id != ""',
+              deleteRule: '@request.auth.id != "" && user = @request.auth.id',
+              fields: messagesFields,
+            });
+            collectionIds.messages = result.id;
+            log(`✅ "messages" creada (ID: ${result.id})`, 'success');
+          } catch (e) {
+            log(`❌ Error creando "messages": ${e.message}`, 'error');
+          }
+        }
+        updateProgress();
+
+        // Create typing collection
+        const existingTyping = existingCollections.find(c => c.name === 'typing');
+        if (existingTyping) {
+          log('⏭️ Colección "typing" ya existe', 'info');
+          collectionIds.typing = existingTyping.id;
+        } else {
+          log('Creando colección "typing"...', 'pending');
+          
+          try {
+            const result = await pb.collections.create({
+              name: 'typing',
+              type: 'base',
+              listRule: '@request.auth.id != ""',
+              viewRule: '@request.auth.id != ""',
+              createRule: '@request.auth.id != ""',
+              updateRule: '@request.auth.id != ""',
+              deleteRule: '@request.auth.id != ""',
+              fields: [
+                { name: 'conversation', type: 'relation', required: true, options: { collectionId: C, cascadeDelete: true, maxSelect: 1, minSelect: 1 } },
+                { name: 'typers', type: 'json', required: false },
+              ],
+              indexes: ['CREATE UNIQUE INDEX idx_typing_conv ON typing (conversation)']
+            });
+            collectionIds.typing = result.id;
+            log(`✅ "typing" creada (ID: ${result.id})`, 'success');
+          } catch (e) {
+            log(`❌ Error creando "typing": ${e.message}`, 'error');
+          }
+        }
+        updateProgress();
+
+        // Fix messages.replyTo to point to messages (self-reference)
+        const M = collectionIds.messages || existingCollections.find(c => c.name === 'messages')?.id;
+        if (M) {
+          log('Corrigiendo messages.replyTo -> messages (auto-referencia)...', 'info');
+          
+          try {
+            const col = await pb.collections.getOne(M);
+            const updatedFields = col.fields.map(f => {
+              if (f.name === 'replyTo' && f.type === 'relation') {
+                return { ...f, options: { ...f.options, collectionId: M } };
+              }
+              return f;
+            });
+
+            await pb.collections.update(M, { fields: updatedFields });
+            log('✅ messages.replyTo corregido -> messages', 'success');
+          } catch (e) {
+            log(`❌ Error corrigiendo replyTo: ${e.message}`, 'error');
+          }
+        }
+        updateProgress();
+
+        log('\n🎉 ¡Todas las colecciones han sido creadas exitosamente!', 'success');
+        log('\nResumen de colecciones:', 'info');
+        log(`  users: ${U}`, 'info');
+        for (const [name, id] of Object.entries(collectionIds)) {
+          log(`  ${name}: ${id}`, 'info');
+        }
+
+      } catch (e) {
+        log(`❌ Error fatal: ${e.message}`, 'error');
+        console.error(e);
+      } finally {
+        btn.disabled = false;
+      }
+    };
+
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const entry = document.createElement('div');
+      entry.className = `status ${type}`;
+      entry.textContent = message;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    window.clearLog = function() {
+      document.getElementById('log').innerHTML = '';
+    };
+  </script>
+</body>
+</html>
