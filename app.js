@@ -333,26 +333,14 @@ function updateHeader() {
   const p = S.profile;
   if (!p) return;
   const photoURL = getFileURL(p, 'photoURL');
-  if (photoURL) {
-    D.headerAvatar.innerHTML = `<img src="${esc(photoURL)}" alt="" class="w-full h-full object-cover">`;
-    D.headerAvatar.style.background = 'transparent';
-  } else {
-    D.headerAvatar.textContent = getInitials(p.displayName);
-    D.headerAvatar.style.background = p.color || getUserColor(S.user.id);
-  }
+  updateAvatarUI(D.headerAvatar, photoURL, p.displayName, S.user.id, p.color);
 }
 
 function updateProfileTab() {
   const p = S.profile;
   if (!p) return;
   const photoURL = getFileURL(p, 'photoURL');
-  if (photoURL) {
-    D.profileAvatarLarge.innerHTML = `<img src="${esc(photoURL)}" alt="" class="w-full h-full object-cover">`;
-    D.profileAvatarLarge.style.background = 'transparent';
-  } else {
-    D.profileAvatarLarge.textContent = getInitials(p.displayName);
-    D.profileAvatarLarge.style.background = p.color || getUserColor(S.user.id);
-  }
+  updateAvatarUI(D.profileAvatarLarge, photoURL, p.displayName, S.user.id, p.color);
   D.profileName.textContent = p.displayName;
   D.profileEmail.textContent = p.email || 'Invitado';
   D.profileBio.textContent = p.bio || '';
@@ -823,7 +811,8 @@ function convItemHTML(c) {
       : getInitials(otherUser?.displayName || 'U');
   }
 
-  const avatarBg = isGroup ? '#004A99' : (otherUser?.color || getUserColor(otherUid || ''));
+  const avatarBg = isGroup ? '#004A99' : (otherUser?.color || getUserColor(otherUser?.id || ''));
+  const otherPhotoURL = otherUser ? getFileURL(otherUser, 'photoURL') : null;
 
   return `
     <div class="conv-item" data-conv-id="${c.id}" data-conv-type="${c.type}">
