@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>ChatNica</title>
+  <meta name="description" content="Mensajería y red social para Nicaragua">
+  <meta name="theme-color" content="#004A99">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <script>
+    (function(){
+      var s = localStorage.getItem('chatnica-font-size');
+      if(s) document.documentElement.style.fontSize = s + 'px';
+    })();
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            nica: {
+              primary: '#004A99',
+              primaryLight: '#1565C0',
+              accent: '#00B4D8',
+              bg: '#F0F2F5',
+              surface: '#FFFFFF',
+              text: '#111827',
+              muted: '#6B7280',
+              green: '#25D366',
+              greenDark: '#128C7E',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+
+<body class="bg-nica-bg text-nica-text font-sans antialiased" style="height:100dvh;display:flex;flex-direction:column;overflow:hidden">
+
+<!-- ══════════════════════════════════════
+  LOADING SCREEN
+══════════════════════════════════════ -->
+<div id="loading-screen" class="flex-1 flex flex-col items-center justify-center gap-4">
+  <div class="w-10 h-10 rounded-full border-2 border-nica-primary/20 border-t-nica-primary animate-spin"></div>
+  <p class="text-nica-muted text-sm font-medium">Conectando...</p>
+</div>
+
+<!-- ══════════════════════════════════════
+  AUTH SCREEN
+══════════════════════════════════════ -->
+<div id="auth-screen" class="hidden flex-1 flex items-center justify-center p-4 overflow-y-auto">
+  <div class="auth-card">
+    <div class="text-center mb-8">
+      <div class="text-4xl mb-2">💬</div>
+      <h1 class="text-2xl font-black text-nica-primary tracking-tight">ChatNica</h1>
+      <p class="text-nica-muted text-sm mt-1">Conectando Nicaragua</p>
+    </div>
+
+    <div id="login-view">
+      <button id="btn-google" class="auth-btn-google">
+        <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Continuar con Google
+      </button>
+
+      <div class="auth-divider"><span>o</span></div>
+
+      <div class="space-y-3">
+        <input id="login-email" type="email" placeholder="Correo electrónico" class="auth-input" autocomplete="email">
+        <input id="login-password" type="password" placeholder="Contraseña" class="auth-input" autocomplete="current-password">
+        <div id="login-error" class="auth-error hidden"></div>
+        <button id="login-btn" class="auth-btn-primary">Iniciar sesión</button>
+      </div>
+
+      <div class="flex items-center justify-between mt-4">
+        <button id="show-register" class="auth-link">Crear cuenta</button>
+      </div>
+    </div>
+
+    <div id="register-view" class="hidden">
+      <h2 class="text-lg font-bold text-nica-text mb-5 text-center">Crear cuenta</h2>
+      <div class="space-y-3">
+        <input id="reg-name" type="text" placeholder="Tu nombre" class="auth-input" autocomplete="name">
+        <input id="reg-email" type="email" placeholder="Correo electrónico" class="auth-input" autocomplete="email">
+        <input id="reg-password" type="password" placeholder="Contraseña (mín. 6 caracteres)" class="auth-input" autocomplete="new-password">
+        <div id="reg-error" class="auth-error hidden"></div>
+        <button id="reg-btn" class="auth-btn-primary">Crear cuenta</button>
+      </div>
+      <div class="text-center mt-4">
+        <button id="show-login" class="auth-link">Ya tengo cuenta</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+  MAIN APP SCREEN
+══════════════════════════════════════ -->
+<div id="main-screen" class="hidden flex-1 flex flex-col overflow-hidden">
+
+  <!-- Header -->
+  <header id="app-header" class="bg-nica-primary text-white flex-shrink-0 z-20">
+    <div class="header-inner px-4 py-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div id="header-avatar" class="header-avatar cursor-pointer" title="Tu perfil"></div>
+        <div class="flex-1 min-w-0">
+          <h1 id="header-title" class="text-lg font-bold truncate">ChatNica</h1>
+          <p id="header-subtitle" class="text-[10px] text-white/70 truncate"></p>
+        </div>
+        <div id="header-actions" class="flex items-center gap-2">
+          <button id="btn-reload" class="header-btn" title="Recargar">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          </button>
+          <button id="btn-new" class="header-btn" title="Nuevo">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          </button>
+          <button id="btn-logout" class="header-btn" title="Cerrar sesión">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Tab Content Area -->
+  <main id="tab-content" class="flex-1 overflow-hidden relative">
+
+    <!-- ═══ TAB: CHATS ═══ -->
+    <div id="tab-chats" class="tab-pane h-full flex flex-col">
+      <div id="conversations-list" class="flex-1 overflow-y-auto">
+        <div id="empty-chats" class="text-center py-16 text-nica-muted">
+          <p class="text-5xl mb-3">💬</p>
+          <p class="text-sm">No tienes conversaciones aún</p>
+          <p class="text-xs mt-1">Agrega contactos para empezar a chatear</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TAB: CONTACTOS ═══ -->
+    <div id="tab-contacts" class="tab-pane hidden h-full flex flex-col">
+      <div id="contacts-search-bar" class="p-3 bg-nica-surface border-b">
+        <div class="flex items-center gap-2 bg-nica-bg rounded-xl px-3 py-2">
+          <svg class="w-4 h-4 text-nica-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          <input id="contacts-search-input" type="text" placeholder="Buscar por nombre o correo..." class="flex-1 bg-transparent text-sm outline-none">
+        </div>
+      </div>
+      <div id="contacts-list" class="flex-1 overflow-y-auto">
+        <div id="contacts-pending-section" class="hidden">
+          <h3 class="px-4 py-2 text-xs font-bold text-nica-muted uppercase tracking-wider">Solicitudes pendientes</h3>
+          <div id="contacts-pending-list"></div>
+        </div>
+        <div id="contacts-accepted-section">
+          <h3 class="px-4 py-2 text-xs font-bold text-nica-muted uppercase tracking-wider">Mis contactos</h3>
+          <div id="contacts-accepted-list"></div>
+        </div>
+        <div id="contacts-discover-section">
+          <h3 class="px-4 py-2 text-xs font-bold text-nica-muted uppercase tracking-wider">Personas en ChatNica</h3>
+          <div id="contacts-discover-list"></div>
+        </div>
+        <div id="empty-contacts" class="hidden text-center py-16 text-nica-muted">
+          <p class="text-5xl mb-3">👥</p>
+          <p class="text-sm">No hay personas registradas aún</p>
+          <p class="text-xs mt-1">Comparte la app con tus amigos</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TAB: FEED ═══ -->
+    <div id="tab-feed" class="tab-pane hidden h-full overflow-y-auto">
+      <div id="feed-list" class="pb-4">
+        <div id="empty-feed" class="text-center py-16 text-nica-muted">
+          <p class="text-5xl mb-3">📰</p>
+          <p class="text-sm">No hay publicaciones aún</p>
+          <p class="text-xs mt-1">Crea la primera publicación</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TAB: PERFIL ═══ -->
+    <div id="tab-profile" class="tab-pane hidden h-full overflow-y-auto">
+      <div class="p-4">
+        <div class="bg-nica-surface rounded-2xl p-6 text-center shadow-sm">
+          <div id="profile-avatar-large" class="profile-avatar-large mx-auto mb-4"></div>
+          <h2 id="profile-name" class="text-xl font-bold text-nica-text"></h2>
+          <p id="profile-email" class="text-sm text-nica-muted mt-1"></p>
+          <p id="profile-bio" class="text-sm text-nica-text mt-3 italic"></p>
+          <p id="profile-city" class="text-xs text-nica-muted mt-1"></p>
+        </div>
+
+        <div class="mt-4 bg-nica-surface rounded-2xl shadow-sm overflow-hidden">
+          <button id="btn-edit-profile" class="profile-menu-item">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            <span>Editar perfil</span>
+          </button>
+          <button id="btn-my-stories" class="profile-menu-item">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>Mis estados</span>
+          </button>
+        </div>
+
+        <div class="mt-4 bg-nica-surface rounded-2xl shadow-sm overflow-hidden">
+          <button id="btn-app-settings" class="profile-menu-item">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span>Ajustes de la app</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav id="bottom-nav" class="bg-nica-surface border-t flex-shrink-0 z-20">
+    <div class="flex items-center justify-around py-1">
+      <button data-tab="chats" class="nav-tab active">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        <span class="text-[10px] font-medium">Chats</span>
+      </button>
+      <button data-tab="contacts" class="nav-tab">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+        <span class="text-[10px] font-medium">Contactos</span>
+      </button>
+      <button data-tab="feed" class="nav-tab">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+        <span class="text-[10px] font-medium">Feed</span>
+      </button>
+      <button data-tab="profile" class="nav-tab">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+        <span class="text-[10px] font-medium">Perfil</span>
+      </button>
+    </div>
+  </nav>
+</div>
+
+<!-- ══════════════════════════════════════
+  CHAT VIEW (pantalla de conversación)
+══════════════════════════════════════ -->
+<div id="chat-view" class="hidden fixed inset-0 z-30 bg-nica-bg flex flex-col">
+  <div class="bg-nica-primary text-white flex items-center gap-3 px-3 py-3 flex-shrink-0">
+    <button id="chat-back-btn" class="p-1">
+      <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <div id="chat-header-avatar" class="chat-header-avatar"></div>
+    <div class="flex-1 min-w-0">
+      <h2 id="chat-header-name" class="text-sm font-bold truncate"></h2>
+      <p id="chat-header-status" class="text-[10px] text-white/70 truncate"></p>
+    </div>
+    <button id="chat-info-btn" class="p-1">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    </button>
+  </div>
+
+  <div id="chat-messages" class="flex-1 overflow-y-auto py-2 space-y-2">
+    <div id="empty-chat" class="text-center py-16 text-nica-muted">
+      <p class="text-4xl mb-3">👋</p>
+      <p class="text-sm">¡Saluda!</p>
+    </div>
+  </div>
+
+  <div id="reply-preview" class="hidden flex-shrink-0 bg-gray-100 border-l-4 border-nica-primary px-4 py-2 mx-3 rounded">
+    <div class="flex-1 min-w-0">
+      <span class="text-xs font-semibold text-nica-primary">↩ </span>
+      <span id="reply-user" class="text-xs font-bold text-nica-primary"></span>
+      <p id="reply-text" class="text-xs text-nica-muted truncate"></p>
+    </div>
+    <button id="cancel-reply" class="text-nica-muted hover:text-red-500 flex-shrink-0 text-lg ml-2">✕</button>
+  </div>
+
+  <div id="typing-indicator" class="hidden flex-shrink-0 flex items-center gap-2 px-4 pb-1">
+    <div class="typing-dots"><span></span><span></span><span></span></div>
+    <span id="typing-text" class="text-xs text-nica-muted italic"></span>
+  </div>
+
+  <div class="flex-shrink-0 bg-nica-surface p-3 border-t">
+    <form id="message-form" class="flex items-center gap-2 bg-nica-bg rounded-2xl p-1.5">
+      <label for="image-input" class="p-2 text-nica-muted hover:text-nica-primary transition-colors flex-shrink-0">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        <input type="file" id="image-input" class="hidden" accept="image/jpeg,image/png,image/gif,image/webp">
+      </label>
+      <label for="video-input" class="p-2 text-nica-muted hover:text-nica-primary transition-colors flex-shrink-0">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        <input type="file" id="video-input" class="hidden" accept="video/mp4,video/webm,video/quicktime">
+      </label>
+      <button type="button" id="mic-btn" class="p-2 text-nica-muted hover:text-nica-primary transition-colors">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+      </button>
+      <input type="text" id="message-input" placeholder="Mensaje..." autocomplete="off" class="flex-1 bg-transparent border-none px-2 py-2 text-sm outline-none">
+      <button type="submit" id="btn-send" class="bg-nica-primary text-white p-2.5 rounded-xl hover:bg-nica-primary/90 transition-all flex-shrink-0">
+        <svg id="send-icon" class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/></svg>
+        <div id="send-loading" class="hidden w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
+      </button>
+    </form>
+    <div id="file-preview" class="hidden flex items-center gap-2 bg-nica-bg p-2 rounded-lg mt-2">
+      <svg class="w-4 h-4 flex-shrink-0 text-nica-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+      <span id="file-preview-name" class="text-xs text-nica-muted truncate flex-1 font-medium"></span>
+      <button id="file-clear-btn" class="text-red-400 hover:text-red-300 text-sm flex-shrink-0">✕</button>
+    </div>
+  </div>
+
+  <div id="recording-bar" class="hidden absolute inset-0 bg-white flex items-center justify-between px-4 z-10 border-t border-gray-200">
+    <div class="flex items-center gap-2">
+      <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+      <span id="recording-timer" class="text-xs font-mono">00:00</span>
+    </div>
+    <button id="stop-rec-btn" class="text-xs font-bold text-red-500 uppercase tracking-widest">Detener</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+  CHAT INFO PANEL
+══════════════════════════════════════ -->
+<div id="chat-info-panel" class="hidden fixed inset-0 z-40 bg-nica-bg flex flex-col">
+  <div class="bg-nica-primary text-white flex items-center gap-3 px-3 py-3 flex-shrink-0">
+    <button id="chat-info-back" class="p-1">
+      <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <h2 class="text-lg font-bold">Info de la conversación</h2>
+  </div>
+  <div id="chat-info-content" class="flex-1 overflow-y-auto p-4"></div>
+</div>
+
+<!-- ══════════════════════════════════════
+  MODALS
+══════════════════════════════════════ -->
+
+<!-- New Conversation Modal -->
+<div id="modal-new-conv" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+  <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
+    <div class="bg-nica-primary p-4 flex justify-between items-center text-white">
+      <h3 class="font-bold">Nueva conversación</h3>
+      <button class="modal-close text-white/80 hover:text-white text-xl">✕</button>
+    </div>
+    <div class="p-4">
+      <button id="btn-new-direct" class="modal-option-btn">
+        <svg class="w-6 h-6 text-nica-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+        <span>Chat directo</span>
+      </button>
+      <button id="btn-new-group" class="modal-option-btn">
+        <svg class="w-6 h-6 text-nica-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>Crear grupo</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Group Modal -->
+<div id="modal-create-group" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+  <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
+    <div class="bg-nica-primary p-4 flex justify-between items-center text-white">
+      <h3 class="font-bold">Crear grupo</h3>
+      <button class="modal-close text-white/80 hover:text-white text-xl">✕</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <input id="group-name" type="text" placeholder="Nombre del grupo" class="auth-input">
+      <p class="text-xs text-nica-muted">Selecciona contactos para invitar:</p>
+      <div id="group-members-select" class="max-h-48 overflow-y-auto space-y-1"></div>
+      <button id="btn-create-group" class="auth-btn-primary">Crear grupo</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Post Modal -->
+<div id="modal-new-post" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+  <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
+    <div class="bg-nica-primary p-4 flex justify-between items-center text-white">
+      <h3 class="font-bold">Nueva publicación</h3>
+      <button class="modal-close text-white/80 hover:text-white text-xl">✕</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <textarea id="post-text" rows="3" placeholder="¿Qué quieres compartir?" class="auth-input resize-none"></textarea>
+      <label for="post-images" class="flex items-center gap-2 text-sm text-nica-primary cursor-pointer">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        Agregar imágenes
+        <input type="file" id="post-images" class="hidden" accept="image/jpeg,image/png,image/gif,image/webp" multiple>
+      </label>
+      <div id="post-images-preview" class="hidden flex flex-wrap gap-2"></div>
+      <button id="btn-publish" class="auth-btn-primary">Publicar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Story Modal -->
+<div id="modal-story" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+  <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
+    <div class="bg-nica-primary p-4 flex justify-between items-center text-white">
+      <h3 class="font-bold">Nuevo estado</h3>
+      <button class="modal-close text-white/80 hover:text-white text-xl">✕</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <div class="flex gap-2">
+        <button id="story-type-image" class="story-type-btn active flex-1 py-2 rounded-lg text-sm font-medium bg-nica-primary text-white">📷 Imagen</button>
+        <button id="story-type-text" class="story-type-btn flex-1 py-2 rounded-lg text-sm font-medium bg-nica-bg text-nica-muted">✏️ Texto</button>
+      </div>
+      <div id="story-image-section">
+        <label for="story-image-input" class="flex items-center justify-center gap-2 text-sm text-nica-primary cursor-pointer py-6 border-2 border-dashed border-nica-primary/30 rounded-xl">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Seleccionar imagen
+          <input type="file" id="story-image-input" class="hidden" accept="image/jpeg,image/png,image/gif,image/webp">
+        </label>
+        <div id="story-image-preview" class="hidden mt-2"></div>
+      </div>
+      <div id="story-text-section" class="hidden">
+        <textarea id="story-text-input" rows="4" placeholder="Escribe algo..." class="auth-input resize-none"></textarea>
+      </div>
+      <button id="btn-publish-story" class="auth-btn-primary">Publicar estado</button>
+    </div>
+  </div>
+</div>
+
+<!-- View Story Modal -->
+<div id="modal-view-story" class="hidden fixed inset-0 z-50 bg-black flex flex-col">
+  <div class="flex items-center gap-3 px-3 py-3 text-white">
+    <button id="view-story-back" class="p-1">
+      <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <div id="view-story-avatar" class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0"></div>
+    <div class="flex-1 min-w-0">
+      <p id="view-story-name" class="text-sm font-bold truncate"></p>
+      <p id="view-story-time" class="text-[10px] text-white/60"></p>
+    </div>
+    <button id="view-story-delete" class="text-white/60 hover:text-red-400">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+    </button>
+  </div>
+  <div id="view-story-content" class="flex-1 flex items-center justify-center p-4 overflow-y-auto"></div>
+</div>
+
+<!-- Edit Profile Modal -->
+<div id="modal-edit-profile" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+  <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
+    <div class="bg-nica-primary p-4 flex justify-between items-center text-white">
+      <h3 class="font-bold">Editar perfil</h3>
+      <button class="modal-close text-white/80 hover:text-white text-xl">✕</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <div class="flex justify-center">
+        <label for="profile-photo-input" class="cursor-pointer">
+          <div id="edit-profile-avatar" class="profile-avatar-large mx-auto"></div>
+          <p class="text-xs text-nica-primary text-center mt-2">Cambiar foto</p>
+          <input type="file" id="profile-photo-input" class="hidden" accept="image/jpeg,image/png,image/webp">
+        </label>
+      </div>
+      <input id="edit-name" type="text" placeholder="Nombre" class="auth-input">
+      <input id="edit-bio" type="text" placeholder="Bio (opcional)" class="auth-input">
+      <input id="edit-city" type="text" placeholder="Ciudad (opcional)" class="auth-input">
+      <select id="edit-department" class="auth-input">
+        <option value="">Departamento (opcional)</option>
+        <option>Boaco</option><option>Carazo</option><option>Chinandega</option>
+        <option>Chontales</option><option>Estelí</option><option>Granada</option>
+        <option>Jinotega</option><option>León</option><option>Madriz</option>
+        <option>Managua</option><option>Masaya</option><option>Matagalpa</option>
+        <option>Nueva Segovia</option><option>RACCN</option><option>RACCS</option>
+        <option>Río San Juan</option><option>Rivas</option>
+      </select>
+      <button id="btn-save-profile" class="auth-btn-primary">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- Select Contact Modal (for new direct chat) -->
+<div id="modal-select-contact" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+  <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
+    <div class="bg-nica-primary p-4 flex justify-between items-center text-white">
+      <h3 class="font-bold">Seleccionar contacto</h3>
+      <button class="modal-close text-white/80 hover:text-white text-xl">✕</button>
+    </div>
+    <div id="select-contact-list" class="max-h-64 overflow-y-auto p-2"></div>
+  </div>
+</div>
+
+<!-- App Settings Modal -->
+<div id="modal-app-settings" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+  <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
+    <div class="bg-nica-primary p-4 flex justify-between items-center text-white">
+      <h3 class="font-bold">Ajustes de la app</h3>
+      <button class="modal-close text-white/80 hover:text-white text-xl">✕</button>
+    </div>
+    <div class="p-4 space-y-5">
+      <div>
+        <label class="text-sm font-semibold text-nica-text mb-2 block">Tamaño del texto</label>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-nica-muted">A</span>
+          <input id="font-size-slider" type="range" min="12" max="22" value="16" class="flex-1 accent-nica-primary">
+          <span class="text-lg text-nica-muted">A</span>
+        </div>
+        <p id="font-size-value" class="text-xs text-nica-muted mt-1 text-center">16px (predeterminado)</p>
+      </div>
+      <div>
+        <label class="text-sm font-semibold text-nica-text mb-2 block">Vista previa</label>
+        <div id="font-size-preview" class="bg-nica-bg rounded-xl p-3 text-nica-text">
+          Este es un ejemplo de cómo se ve el texto con el tamaño seleccionado.
+        </div>
+      </div>
+      <button id="btn-reset-font" class="text-sm text-nica-primary font-medium w-full py-2 rounded-lg hover:bg-nica-bg transition-colors">
+        Restablecer tamaño predeterminado
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Reaction Popover -->
+<div id="reaction-popover" class="reaction-popover hidden">
+  <button data-emoji="👍">👍</button>
+  <button data-emoji="❤️">❤️</button>
+  <button data-emoji="😂">😂</button>
+  <button data-emoji="😮">😮</button>
+  <button data-emoji="😢">😢</button>
+  <button data-emoji="🙏">🙏</button>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast">
+  <span id="toast-message"></span>
+</div>
+
+<!-- Service Worker Registration -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(r => console.log('✅ SW:', r.scope))
+        .catch(e => console.warn('SW error:', e));
+    });
+  }
+</script>
+
+<!-- PWA Install Prompt -->
+<script type="module">
+  let deferredPrompt;
+  const installBanner = document.createElement('div');
+  installBanner.id = 'install-banner';
+  installBanner.className = 'hidden fixed bottom-20 left-4 right-4 bg-white rounded-2xl shadow-2xl p-4 z-50 border border-gray-200';
+  installBanner.innerHTML = `
+    <div class="flex items-center gap-3 mb-3">
+      <div class="w-10 h-10 rounded-xl bg-nica-primary flex items-center justify-center text-white text-lg font-bold">💬</div>
+      <div class="flex-1">
+        <p class="text-sm font-bold text-nica-text">Instala ChatNica</p>
+        <p class="text-xs text-nica-muted">Accede rápido desde tu pantalla de inicio</p>
+      </div>
+      <button id="install-banner-close" class="text-nica-muted text-lg">✕</button>
+    </div>
+    <button id="install-banner-btn" class="w-full bg-nica-primary text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-nica-primary/90 transition">
+      Instalar app
+    </button>
+  `;
+  document.body.appendChild(installBanner);
+
+  document.getElementById('install-banner-close').addEventListener('click', () => {
+    installBanner.classList.add('hidden');
+    deferredPrompt = null;
+  });
+
+  document.getElementById('install-banner-btn').addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      installBanner.classList.add('hidden');
+    }
+    deferredPrompt = null;
+  });
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBanner.classList.remove('hidden');
+  });
+</script>
+
+</body>
+</html>

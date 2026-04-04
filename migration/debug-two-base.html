@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug - Two Base Collections</title>
+  <style>
+    body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+    .log { margin: 10px 0; padding: 10px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; }
+    .success { background: #064e3b; color: #6ee7b7; }
+    .error { background: #450a0a; color: #fca5a5; }
+    .info { background: #1e3a5f; color: #93c5fd; }
+  </style>
+</head>
+<body>
+  <h1>Debug - Two Base Collections Relation</h1>
+  <div id="output"></div>
+
+  <script>
+    const output = document.getElementById('output');
+    function log(msg, cls = 'info') {
+      const div = document.createElement('div');
+      div.className = `log ${cls}`;
+      div.textContent = msg;
+      output.appendChild(div);
+    }
+
+    async function main() {
+      const PB = 'http://127.0.0.1:8090';
+
+      const authRes = await fetch(`${PB}/api/collections/_superusers/auth-with-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identity: 'mcalebr04@gmail.com', password: 'Juan290683' }),
+      });
+      const authData = await authRes.json();
+      const token = authData.token;
+      log('✅ Autenticado', 'success');
+
+      // Get users
+      const colsRes = await fetch(`${PB}/api/collections`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const colsData = await colsRes.json();
+      const users = colsData.items.find(c => c.name === 'users');
+      log(`Users ID: ${users.id}`, 'info');
+
+      // Test 1: Create two base collections, add relation between them
+      log('\n=== Test 1: Two base collections ===', 'info');
+
+      // Create target
+      const targetRes = await fetch(`${PB}/api/collections`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: 'dbg_target',
+          type: 'base',
+          fields: [{ name: 'title', type: 'text' }],
+        }),
+      });
+      const target = await targetRes.json();
+      if (!targetRes.ok) {
+        log('Failed to create target: ' + JSON.stringify(target, null, 2), 'error');
+        return;
+      }
+      log(`✅ Created dbg_target: ${target.id}`, 'success');
+
+      // Create source with relation to target
+      log('\nCreating source with relation to target...', 'info');
+      const sourceBody = {
+        name: 'dbg_source',
+        type: 'base',
+        fields: [
+          { name: 'title', type: 'text' },
+          {
+            name: 'target_ref',
+            type: 'relation',
+            options: {
+              collectionId: target.id,
+              cascadeDelete: false,
+              maxSelect: 1,
+            },
+          },
+        ],
+      };
+      log('Body: ' + JSON.stringify(sourceBody, null, 2));
+
+      const sourceRes = await fetch(`${PB}/api/collections`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(sourceBody),
+      });
+      const source = await sourceRes.json();
+      if (!sourceRes.ok) {
+        log('❌ Failed: ' + JSON.stringify(source, null, 2), 'error');
+      } else {
+        log('✅ Success! Created dbg_source', 'success');
+        log('Fields: ' + JSON.stringify(source.fields.map(f => ({
+          name: f.name, type: f.type, collectionId: f.options?.collectionId
+        })), null, 2));
+      }
+
+      // Test 2: Add relation to users collection from a base collection
+      log('\n=== Test 2: Add relation to users from base collection ===', 'info');
+
+      // Create a new base collection
+      const baseRes = await fetch(`${PB}/api/collections`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: 'dbg_base',
+          type: 'base',
+          fields: [{ name: 'title', type: 'text' }],
+        }),
+      });
+      const base = await baseRes.json();
+      if (!baseRes.ok) {
+        log('Failed to create base: ' + JSON.stringify(base, null, 2), 'error');
+      } else {
+        log(`✅ Created dbg_base: ${base.id}`, 'success');
+
+        // Now add relation to users
+        log('\nAdding relation to users...', 'info');
+        const updateBody = {
+          fields: [
+            ...base.fields,
+            {
+              name: 'user_ref',
+              type: 'relation',
+              options: {
+                collectionId: users.id,
+                cascadeDelete: false,
+                maxSelect: 1,
+              },
+            },
+          ],
+        };
+        log('Body: ' + JSON.stringify(updateBody, null, 2));
+
+        const updateRes = await fetch(`${PB}/api/collections/${base.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(updateBody),
+        });
+        const updateData = await updateRes.json();
+        if (!updateRes.ok) {
+          log('❌ Failed: ' + JSON.stringify(updateData, null, 2), 'error');
+        } else {
+          log('✅ Success!', 'success');
+          log('Fields: ' + JSON.stringify(updateData.fields.map(f => ({
+            name: f.name, type: f.type, collectionId: f.options?.collectionId
+          })), null, 2));
+        }
+      }
+
+      // Cleanup
+      const cleanup = async (name) => {
+        await fetch(`${PB}/api/collections/${name}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      };
+      await cleanup('dbg_target');
+      await cleanup('dbg_source').catch(() => {});
+      await cleanup('dbg_base').catch(() => {});
+      log('\n🧹 Cleaned up', 'info');
+    }
+
+    main();
+  </script>
+</body>
+</html>

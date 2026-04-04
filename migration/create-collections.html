@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ChatNica - Crear Colecciones PocketBase</title>
+  <title>ChatNica - Crear Colecciones PocketBase 0.36</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
@@ -25,8 +25,8 @@
 </head>
 <body>
   <div class="container">
-    <h1>🗄️ ChatNica - Crear Colecciones</h1>
-    <p>Este script creará todas las colecciones necesarias para ChatNica en tu PocketBase.</p>
+    <h1>ChatNica - Crear Colecciones</h1>
+    <p>Script para PocketBase 0.36+ (campos de relacion al nivel superior, sin "options")</p>
     
     <div style="margin: 20px 0;">
       <label>PocketBase URL:</label><br>
@@ -36,11 +36,11 @@
       <input type="text" id="adminEmail" value="mcalebr04@gmail.com" style="width: 100%; padding: 8px; margin: 5px 0 15px; background: #1f2937; border: 1px solid #374151; color: #e0e0e0; border-radius: 6px;">
       
       <label>Admin Password:</label><br>
-      <input type="password" id="adminPassword" value="Juan290683" style="width: 100%; padding: 8px; margin: 5px 0 15px; background: #1f2937; border: 1px solid #374151; color: #e0e0e0; border-radius: 6px;">
+      <input type="password" id="adminPassword" placeholder="Ingrese la contraseña del administrador" required style="width: 100%; padding: 8px; margin: 5px 0 15px; background: #1f2937; border: 1px solid #374151; color: #e0e0e0; border-radius: 6px;">
     </div>
 
-    <button id="btnRun" onclick="run()">▶️ Ejecutar Creación de Colecciones</button>
-    <button id="btnClear" onclick="clearLog()" style="background: #6b7280;">🗑️ Limpiar Log</button>
+    <button id="btnRun" onclick="run()">Ejecutar Creación de Colecciones</button>
+    <button id="btnClear" onclick="clearLog()" style="background: #6b7280;">Limpiar Log</button>
 
     <div class="progress" id="progressContainer" style="display: none;">
       <div class="progress-bar">
@@ -52,11 +52,58 @@
     <div id="log"></div>
   </div>
 
-  <script type="module">
-    // Use latest master branch SDK which supports PocketBase 0.36+
-    import PocketBase from 'https://cdn.jsdelivr.net/gh/pocketbase/js-sdk@master/dist/pocketbase.es.mjs';
+  <script>
+    // Helper: relation field for PB 0.36+ (NO "options" wrapper)
+    function relationField(name, collectionId, opts = {}) {
+      return {
+        name,
+        type: 'relation',
+        collectionId,
+        cascadeDelete: opts.cascadeDelete || false,
+        maxSelect: opts.maxSelect || 1,
+        minSelect: opts.minSelect || 0,
+        required: opts.required || false,
+      };
+    }
 
-    window.run = async function() {
+    function selectField(name, values, opts = {}) {
+      return {
+        name,
+        type: 'select',
+        values,
+        maxSelect: opts.maxSelect || 1,
+        required: opts.required !== false,
+      };
+    }
+
+    function textField(name, opts = {}) {
+      return { name, type: 'text', required: opts.required || false };
+    }
+
+    function fileField(name, opts = {}) {
+      return {
+        name,
+        type: 'file',
+        maxSelect: opts.maxSelect || 1,
+        maxSize: opts.maxSize || 0,
+        mimeTypes: opts.mimeTypes || [],
+        required: opts.required || false,
+      };
+    }
+
+    function jsonField(name) {
+      return { name, type: 'json', required: false };
+    }
+
+    function boolField(name) {
+      return { name, type: 'bool', required: false };
+    }
+
+    function dateField(name, opts = {}) {
+      return { name, type: 'date', required: opts.required || false };
+    }
+
+    async function run() {
       const pbUrl = document.getElementById('pbUrl').value.replace(/\/$/, '');
       const email = document.getElementById('adminEmail').value;
       const password = document.getElementById('adminPassword').value;
@@ -70,26 +117,42 @@
       clearLog();
 
       try {
-        const pb = new PocketBase(pbUrl);
-        
+        // Login
         log('Iniciando sesión como admin...', 'info');
-        await pb.admins.authWithPassword(email, password);
-        log('✅ Autenticación exitosa', 'success');
+        const authRes = await fetch(`${pbUrl}/api/collections/_superusers/auth-with-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identity: email, password: password }),
+        });
+
+        if (!authRes.ok) {
+          log(`Error de autenticación: ${await authRes.text()}`, 'error');
+          btn.disabled = false;
+          return;
+        }
+
+        const authData = await authRes.json();
+        const token = authData.token;
+        log('Autenticación exitosa', 'success');
 
         // Get existing collections
         log('Obteniendo colecciones existentes...', 'info');
-        const existingCollections = await pb.collections.getFullList();
+        const collectionsRes = await fetch(`${pbUrl}/api/collections`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const collectionsData = await collectionsRes.json();
+        const existingCollections = collectionsData.items;
 
         const usersCollection = existingCollections.find(c => c.name === 'users');
         if (!usersCollection) {
-          log('❌ Colección "users" no encontrada. Debes crearla primero como auth collection.', 'error');
+          log('Coleccion "users" no encontrada. Debes crearla primero como auth collection.', 'error');
           btn.disabled = false;
           return;
         }
         const U = usersCollection.id;
-        log(`✅ Colección "users" encontrada (ID: ${U})`, 'success');
+        log(`Coleccion "users" encontrada (ID: ${U})`, 'success');
 
-        // Define collections to create
+        // Define collections - PB 0.36 format (no "options" wrapper)
         const collections = [
           {
             name: 'contacts',
@@ -100,9 +163,9 @@
             updateRule: '@request.auth.id != ""',
             deleteRule: '@request.auth.id != ""',
             fields: [
-              { name: 'requester', type: 'relation', required: true, options: { collectionId: U, cascadeDelete: true, maxSelect: 1, minSelect: 1 } },
-              { name: 'target', type: 'relation', required: true, options: { collectionId: U, cascadeDelete: true, maxSelect: 1, minSelect: 1 } },
-              { name: 'status', type: 'select', required: true, options: { values: ['pending', 'accepted'], maxSelect: 1 } },
+              relationField('requester', U, { required: true, cascadeDelete: true, maxSelect: 1, minSelect: 1 }),
+              relationField('target', U, { required: true, cascadeDelete: true, maxSelect: 1, minSelect: 1 }),
+              selectField('status', ['pending', 'accepted'], { required: true }),
             ]
           },
           {
@@ -114,12 +177,12 @@
             updateRule: '@request.auth.id != "" && participants.id ?= @request.auth.id',
             deleteRule: '@request.auth.id != "" && createdBy = @request.auth.id',
             fields: [
-              { name: 'type', type: 'select', required: true, options: { values: ['direct', 'group'], maxSelect: 1 } },
-              { name: 'participants', type: 'relation', required: true, options: { collectionId: U, maxSelect: 100, cascadeDelete: false } },
-              { name: 'name', type: 'text', required: false },
-              { name: 'createdBy', type: 'relation', required: true, options: { collectionId: U, cascadeDelete: false, maxSelect: 1, minSelect: 1 } },
-              { name: 'lastMessage', type: 'text', required: false },
-              { name: 'lastMessageTime', type: 'date', required: false },
+              selectField('type', ['direct', 'group'], { required: true }),
+              relationField('participants', U, { required: true, maxSelect: 100 }),
+              textField('name'),
+              relationField('createdBy', U, { required: true, maxSelect: 1, minSelect: 1 }),
+              textField('lastMessage'),
+              dateField('lastMessageTime'),
             ]
           },
           {
@@ -131,11 +194,11 @@
             updateRule: '@request.auth.id != "" && uid = @request.auth.id',
             deleteRule: '@request.auth.id != "" && uid = @request.auth.id',
             fields: [
-              { name: 'uid', type: 'relation', required: true, options: { collectionId: U, cascadeDelete: true, maxSelect: 1, minSelect: 1 } },
-              { name: 'text', type: 'text', required: false },
-              { name: 'images', type: 'file', required: false, options: { maxSelect: 10, maxSize: 5242880, mimeTypes: ['image/jpeg','image/png','image/gif','image/webp'] } },
-              { name: 'likes', type: 'json', required: false },
-              { name: 'comments', type: 'json', required: false },
+              relationField('uid', U, { required: true, cascadeDelete: true, maxSelect: 1, minSelect: 1 }),
+              textField('text'),
+              fileField('images', { maxSelect: 10, maxSize: 5242880, mimeTypes: ['image/jpeg','image/png','image/gif','image/webp'] }),
+              jsonField('likes'),
+              jsonField('comments'),
             ]
           },
           {
@@ -147,12 +210,12 @@
             updateRule: '@request.auth.id != "" && uid = @request.auth.id',
             deleteRule: '@request.auth.id != "" && uid = @request.auth.id',
             fields: [
-              { name: 'uid', type: 'relation', required: true, options: { collectionId: U, cascadeDelete: true, maxSelect: 1, minSelect: 1 } },
-              { name: 'type', type: 'select', required: true, options: { values: ['image', 'text'], maxSelect: 1 } },
-              { name: 'image', type: 'file', required: false, options: { maxSelect: 1, maxSize: 5242880, mimeTypes: ['image/jpeg','image/png','image/gif','image/webp'] } },
-              { name: 'text', type: 'text', required: false },
-              { name: 'expiresAt', type: 'date', required: true },
-              { name: 'views', type: 'json', required: false },
+              relationField('uid', U, { required: true, cascadeDelete: true, maxSelect: 1, minSelect: 1 }),
+              selectField('type', ['image', 'text'], { required: true }),
+              fileField('image', { maxSelect: 1, maxSize: 5242880, mimeTypes: ['image/jpeg','image/png','image/gif','image/webp'] }),
+              textField('text'),
+              dateField('expiresAt', { required: true }),
+              jsonField('views'),
             ]
           },
           {
@@ -164,9 +227,9 @@
             updateRule: '@request.auth.id != "" && user = @request.auth.id',
             deleteRule: '@request.auth.id != "" && user = @request.auth.id',
             fields: [
-              { name: 'user', type: 'relation', required: true, options: { collectionId: U, cascadeDelete: true, maxSelect: 1, minSelect: 1 } },
-              { name: 'online', type: 'bool', required: false },
-              { name: 'lastSeen', type: 'date', required: false },
+              relationField('user', U, { required: true, cascadeDelete: true, maxSelect: 1, minSelect: 1 }),
+              boolField('online'),
+              dateField('lastSeen'),
             ],
             indexes: ['CREATE UNIQUE INDEX idx_presence_user ON presence (user)']
           },
@@ -187,16 +250,21 @@
         for (const c of collections) {
           const existing = existingCollections.find(col => col.name === c.name);
           if (existing) {
-            log(`⏭️ Colección "${c.name}" ya existe, saltando`, 'info');
+            log(`Coleccion "${c.name}" ya existe, saltando`, 'info');
             collectionIds[c.name] = existing.id;
             updateProgress();
             continue;
           }
 
-          log(`Creando colección "${c.name}"...`, 'pending');
+          log(`Creando coleccion "${c.name}"...`, 'pending');
           
-          try {
-            const result = await pb.collections.create({
+          const createRes = await fetch(`${pbUrl}/api/collections`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
               name: c.name,
               type: c.type,
               listRule: c.listRule,
@@ -206,11 +274,16 @@
               deleteRule: c.deleteRule,
               fields: c.fields,
               indexes: c.indexes || [],
-            });
+            }),
+          });
+
+          if (!createRes.ok) {
+            const error = await createRes.text();
+            log(`Error creando "${c.name}": ${error}`, 'error');
+          } else {
+            const result = await createRes.json();
             collectionIds[c.name] = result.id;
-            log(`✅ "${c.name}" creada (ID: ${result.id})`, 'success');
-          } catch (e) {
-            log(`❌ Error creando "${c.name}": ${e.message}\n${JSON.stringify(e.data || {}, null, 2)}`, 'error');
+            log(`"${c.name}" creada (ID: ${result.id})`, 'success');
           }
           updateProgress();
         }
@@ -218,33 +291,38 @@
         // Create messages collection
         const C = collectionIds.conversations || existingCollections.find(c => c.name === 'conversations')?.id;
         if (!C) {
-          log('❌ No se encontró la colección "conversations"', 'error');
+          log('No se encontro la coleccion "conversations"', 'error');
           btn.disabled = false;
           return;
         }
 
         const existingMessages = existingCollections.find(c => c.name === 'messages');
         if (existingMessages) {
-          log('⏭️ Colección "messages" ya existe', 'info');
+          log('Coleccion "messages" ya existe', 'info');
           collectionIds.messages = existingMessages.id;
         } else {
-          log('Creando colección "messages"...', 'pending');
+          log('Creando coleccion "messages"...', 'pending');
           
           const messagesFields = [
-            { name: 'conversation', type: 'relation', required: true, options: { collectionId: C, cascadeDelete: true, maxSelect: 1, minSelect: 1 } },
-            { name: 'text', type: 'text', required: false },
-            { name: 'image', type: 'file', required: false, options: { maxSelect: 1, maxSize: 10485760, mimeTypes: ['image/jpeg','image/png','image/gif','image/webp'] } },
-            { name: 'video', type: 'file', required: false, options: { maxSelect: 1, maxSize: 10485760, mimeTypes: ['video/mp4','video/webm','video/quicktime'] } },
-            { name: 'audio', type: 'file', required: false, options: { maxSelect: 1, maxSize: 10485760, mimeTypes: ['audio/*'] } },
-            { name: 'user', type: 'relation', required: true, options: { collectionId: U, cascadeDelete: false, maxSelect: 1, minSelect: 1 } },
-            { name: 'replyTo', type: 'relation', required: false, options: { collectionId: C, cascadeDelete: false, maxSelect: 1 } },
-            { name: 'replyToUserName', type: 'text', required: false },
-            { name: 'reactions', type: 'json', required: false },
-            { name: 'status', type: 'select', required: false, options: { values: ['sent', 'delivered', 'read'], maxSelect: 1 } },
+            relationField('conversation', C, { required: true, cascadeDelete: true, maxSelect: 1, minSelect: 1 }),
+            textField('text'),
+            fileField('image', { maxSelect: 1, maxSize: 10485760, mimeTypes: ['image/jpeg','image/png','image/gif','image/webp'] }),
+            fileField('video', { maxSelect: 1, maxSize: 10485760, mimeTypes: ['video/mp4','video/webm','video/quicktime'] }),
+            fileField('audio', { maxSelect: 1, maxSize: 10485760, mimeTypes: ['audio/*'] }),
+            relationField('user', U, { required: true, maxSelect: 1, minSelect: 1 }),
+            relationField('replyTo', C, { maxSelect: 1 }), // temp: point to conversations, will fix later
+            textField('replyToUserName'),
+            jsonField('reactions'),
+            selectField('status', ['sent', 'delivered', 'read']),
           ];
 
-          try {
-            const result = await pb.collections.create({
+          const createRes = await fetch(`${pbUrl}/api/collections`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
               name: 'messages',
               type: 'base',
               listRule: '@request.auth.id != ""',
@@ -253,11 +331,15 @@
               updateRule: '@request.auth.id != ""',
               deleteRule: '@request.auth.id != "" && user = @request.auth.id',
               fields: messagesFields,
-            });
+            }),
+          });
+
+          if (!createRes.ok) {
+            log(`Error creando "messages": ${await createRes.text()}`, 'error');
+          } else {
+            const result = await createRes.json();
             collectionIds.messages = result.id;
-            log(`✅ "messages" creada (ID: ${result.id})`, 'success');
-          } catch (e) {
-            log(`❌ Error creando "messages": ${e.message}`, 'error');
+            log(`"messages" creada (ID: ${result.id})`, 'success');
           }
         }
         updateProgress();
@@ -265,13 +347,18 @@
         // Create typing collection
         const existingTyping = existingCollections.find(c => c.name === 'typing');
         if (existingTyping) {
-          log('⏭️ Colección "typing" ya existe', 'info');
+          log('Coleccion "typing" ya existe', 'info');
           collectionIds.typing = existingTyping.id;
         } else {
-          log('Creando colección "typing"...', 'pending');
+          log('Creando coleccion "typing"...', 'pending');
           
-          try {
-            const result = await pb.collections.create({
+          const createRes = await fetch(`${pbUrl}/api/collections`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
               name: 'typing',
               type: 'base',
               listRule: '@request.auth.id != ""',
@@ -280,15 +367,19 @@
               updateRule: '@request.auth.id != ""',
               deleteRule: '@request.auth.id != ""',
               fields: [
-                { name: 'conversation', type: 'relation', required: true, options: { collectionId: C, cascadeDelete: true, maxSelect: 1, minSelect: 1 } },
-                { name: 'typers', type: 'json', required: false },
+                relationField('conversation', C, { required: true, cascadeDelete: true, maxSelect: 1, minSelect: 1 }),
+                jsonField('typers'),
               ],
               indexes: ['CREATE UNIQUE INDEX idx_typing_conv ON typing (conversation)']
-            });
+            }),
+          });
+
+          if (!createRes.ok) {
+            log(`Error creando "typing": ${await createRes.text()}`, 'error');
+          } else {
+            const result = await createRes.json();
             collectionIds.typing = result.id;
-            log(`✅ "typing" creada (ID: ${result.id})`, 'success');
-          } catch (e) {
-            log(`❌ Error creando "typing": ${e.message}`, 'error');
+            log(`"typing" creada (ID: ${result.id})`, 'success');
           }
         }
         updateProgress();
@@ -298,24 +389,36 @@
         if (M) {
           log('Corrigiendo messages.replyTo -> messages (auto-referencia)...', 'info');
           
-          try {
-            const col = await pb.collections.getOne(M);
-            const updatedFields = col.fields.map(f => {
-              if (f.name === 'replyTo' && f.type === 'relation') {
-                return { ...f, options: { ...f.options, collectionId: M } };
-              }
-              return f;
-            });
+          const getRes = await fetch(`${pbUrl}/api/collections/${M}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const col = await getRes.json();
 
-            await pb.collections.update(M, { fields: updatedFields });
-            log('✅ messages.replyTo corregido -> messages', 'success');
-          } catch (e) {
-            log(`❌ Error corrigiendo replyTo: ${e.message}`, 'error');
+          const updatedFields = col.fields.map(f => {
+            if (f.name === 'replyTo' && f.type === 'relation') {
+              return { ...f, collectionId: M };
+            }
+            return f;
+          });
+
+          const updateRes = await fetch(`${pbUrl}/api/collections/${M}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ fields: updatedFields }),
+          });
+
+          if (!updateRes.ok) {
+            log(`Error corrigiendo replyTo: ${await updateRes.text()}`, 'error');
+          } else {
+            log('messages.replyTo corregido -> messages', 'success');
           }
         }
         updateProgress();
 
-        log('\n🎉 ¡Todas las colecciones han sido creadas exitosamente!', 'success');
+        log('\nTodas las colecciones han sido creadas exitosamente!', 'success');
         log('\nResumen de colecciones:', 'info');
         log(`  users: ${U}`, 'info');
         for (const [name, id] of Object.entries(collectionIds)) {
@@ -323,12 +426,12 @@
         }
 
       } catch (e) {
-        log(`❌ Error fatal: ${e.message}`, 'error');
+        log(`Error fatal: ${e.message}`, 'error');
         console.error(e);
       } finally {
         btn.disabled = false;
       }
-    };
+    }
 
     function log(message, type = 'info') {
       const logDiv = document.getElementById('log');
@@ -339,9 +442,9 @@
       logDiv.scrollTop = logDiv.scrollHeight;
     }
 
-    window.clearLog = function() {
+    function clearLog() {
       document.getElementById('log').innerHTML = '';
-    };
+    }
   </script>
 </body>
 </html>

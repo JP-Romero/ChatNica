@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug - Raw API Request</title>
+  <style>
+    body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+    .log { margin: 10px 0; padding: 10px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; }
+    .success { background: #064e3b; color: #6ee7b7; }
+    .error { background: #450a0a; color: #fca5a5; }
+    .info { background: #1e3a5f; color: #93c5fd; }
+  </style>
+</head>
+<body>
+  <h1>Debug - Raw API Request for Relation Field</h1>
+  <div id="output"></div>
+
+  <script type="module">
+    const output = document.getElementById('output');
+    function log(msg, cls = 'info') {
+      const div = document.createElement('div');
+      div.className = `log ${cls}`;
+      div.textContent = msg;
+      output.appendChild(div);
+    }
+
+    async function main() {
+      const PB = 'http://127.0.0.1:8090';
+
+      // Login
+      const authRes = await fetch(`${PB}/api/collections/_superusers/auth-with-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identity: 'mcalebr04@gmail.com', password: 'Juan290683' }),
+      });
+      const authData = await authRes.json();
+      const token = authData.token;
+      log('✅ Autenticado', 'success');
+
+      // Get users collection
+      const colsRes = await fetch(`${PB}/api/collections`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const colsData = await colsRes.json();
+      const users = colsData.items.find(c => c.name === 'users');
+      const U = users.id;
+      log(`Users ID: ${U}`, 'info');
+
+      // Get full users collection to see field format
+      const usersFullRes = await fetch(`${PB}/api/collections/${U}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const usersFull = await usersFullRes.json();
+      log('\n=== Full Users Collection ===', 'info');
+      log(JSON.stringify(usersFull, null, 2));
+
+      // Create a simple test collection
+      log('\n=== Creating test collection ===', 'info');
+      const createRes = await fetch(`${PB}/api/collections`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: 'dbg_raw',
+          type: 'base',
+          fields: [{ name: 'title', type: 'text' }],
+        }),
+      });
+      const createData = await createRes.json();
+      if (!createRes.ok) {
+        log('Failed: ' + JSON.stringify(createData, null, 2), 'error');
+        return;
+      }
+      log(`✅ Created dbg_raw: ${createData.id}`, 'success');
+      log('Fields: ' + JSON.stringify(createData.fields, null, 2));
+
+      // Now try adding relation with raw fetch - try different formats
+      const tests = [
+        {
+          label: 'Format A: Standard options',
+          body: {
+            fields: [
+              ...createData.fields,
+              {
+                name: 'user_ref',
+                type: 'relation',
+                options: {
+                  collectionId: U,
+                  cascadeDelete: false,
+                  maxSelect: 1,
+                },
+              },
+            ],
+          },
+        },
+        {
+          label: 'Format B: With all fields explicitly set',
+          body: {
+            fields: [
+              ...createData.fields,
+              {
+                name: 'user_ref',
+                type: 'relation',
+                required: false,
+                presentable: false,
+                options: {
+                  collectionId: U,
+                  cascadeDelete: false,
+                  maxSelect: 1,
+                  minSelect: null,
+                },
+              },
+            ],
+          },
+        },
+        {
+          label: 'Format C: Using collection name',
+          body: {
+            fields: [
+              ...createData.fields,
+              {
+                name: 'user_ref',
+                type: 'relation',
+                options: {
+                  collectionId: 'users',
+                  cascadeDelete: false,
+                  maxSelect: 1,
+                },
+              },
+            ],
+          },
+        },
+      ];
+
+      for (const test of tests) {
+        log(`\n=== ${test.label} ===`, 'info');
+        log('Request body: ' + JSON.stringify(test.body, null, 2));
+
+        const res = await fetch(`${PB}/api/collections/${createData.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(test.body),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          log('❌ Failed: ' + JSON.stringify(data, null, 2), 'error');
+        } else {
+          log('✅ Success!', 'success');
+          log('Fields: ' + JSON.stringify(data.fields.map(f => ({
+            name: f.name,
+            type: f.type,
+            collectionId: f.options?.collectionId,
+          })), null, 2));
+          break;
+        }
+      }
+
+      // Cleanup
+      await fetch(`${PB}/api/collections/dbg_raw`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      log('\n🧹 Cleaned up', 'info');
+    }
+
+    main();
+  </script>
+</body>
+</html>

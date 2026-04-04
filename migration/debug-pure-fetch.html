@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug - Pure Fetch No SDK</title>
+  <style>
+    body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+    .log { margin: 10px 0; padding: 10px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; }
+    .success { background: #064e3b; color: #6ee7b7; }
+    .error { background: #450a0a; color: #fca5a5; }
+    .info { background: #1e3a5f; color: #93c5fd; }
+  </style>
+</head>
+<body>
+  <h1>Debug - Pure Fetch (No SDK)</h1>
+  <div id="output"></div>
+
+  <script>
+    const output = document.getElementById('output');
+    function log(msg, cls = 'info') {
+      const div = document.createElement('div');
+      div.className = `log ${cls}`;
+      div.textContent = msg;
+      output.appendChild(div);
+    }
+
+    async function main() {
+      const PB = 'http://127.0.0.1:8090';
+
+      // Login
+      const authRes = await fetch(`${PB}/api/collections/_superusers/auth-with-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identity: 'mcalebr04@gmail.com', password: 'Juan290683' }),
+      });
+      const authData = await authRes.json();
+      const token = authData.token;
+      log('✅ Autenticado', 'success');
+
+      // Get users collection
+      const colsRes = await fetch(`${PB}/api/collections`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const colsData = await colsRes.json();
+      const users = colsData.items.find(c => c.name === 'users');
+      const U = users.id;
+      log(`Users ID: ${U}`, 'info');
+
+      // Create test collection
+      log('\n=== Creating test collection ===', 'info');
+      const createRes = await fetch(`${PB}/api/collections`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: 'dbg_pure',
+          type: 'base',
+          fields: [{ name: 'title', type: 'text' }],
+        }),
+      });
+      const createData = await createRes.json();
+      if (!createRes.ok) {
+        log('Failed: ' + JSON.stringify(createData, null, 2), 'error');
+        return;
+      }
+      log(`✅ Created dbg_pure: ${createData.id}`, 'success');
+      log('Fields: ' + JSON.stringify(createData.fields, null, 2));
+
+      // Test: Add relation field using PATCH
+      log('\n=== Adding relation field via PATCH ===', 'info');
+
+      const fields = [
+        ...createData.fields,
+        {
+          name: 'user_ref',
+          type: 'relation',
+          options: {
+            collectionId: U,
+            cascadeDelete: false,
+            maxSelect: 1,
+          },
+        },
+      ];
+
+      const body = { fields };
+      log('Request body (stringified):');
+      log(JSON.stringify(body, null, 2));
+
+      // Log exact bytes being sent
+      const bodyStr = JSON.stringify(body);
+      log(`\nBody length: ${bodyStr.length} chars`);
+      
+      // Check if collectionId is actually in the string
+      log(`Contains "_pb_users_auth_": ${bodyStr.includes('_pb_users_auth_')}`);
+      log(`Contains "collectionId": ${bodyStr.includes('collectionId')}`);
+
+      const res = await fetch(`${PB}/api/collections/${createData.id}`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json', 
+          Authorization: `Bearer ${token}`,
+        },
+        body: bodyStr,
+      });
+
+      log(`\nResponse status: ${res.status}`);
+      log(`Response headers: ${JSON.stringify(Object.fromEntries(res.headers.entries()), null, 2)}`);
+
+      const data = await res.json();
+      if (!res.ok) {
+        log('❌ Failed: ' + JSON.stringify(data, null, 2), 'error');
+      } else {
+        log('✅ Success!', 'success');
+        log('Fields: ' + JSON.stringify(data.fields, null, 2));
+      }
+
+      // Cleanup
+      await fetch(`${PB}/api/collections/dbg_pure`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      log('\n🧹 Cleaned up', 'info');
+    }
+
+    main();
+  </script>
+</body>
+</html>

@@ -15,18 +15,18 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
-import { initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
-import { getStorage } from 'firebase-admin/storage';
-import PocketBase from 'pocketbase';
-import { createReadStream } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { writeFile, unlink, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
-import { pipeline } from 'stream/promises';
-import { Readable } from 'stream';
-import fetch from 'node-fetch';
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getFirestore, Timestamp } = require('firebase-admin/firestore');
+const { getStorage } = require('firebase-admin/storage');
+const PocketBase = require('pocketbase/cjs');
+const { createReadStream } = require('fs');
+const { tmpdir } = require('os');
+const { join } = require('path');
+const { writeFile, unlink, mkdir } = require('fs/promises');
+const { existsSync } = require('fs');
+const { pipeline } = require('stream/promises');
+const { Readable } = require('stream');
+const fetch = require('node-fetch');
 
 // ═══════════════════════════════════════════════════════════════
 //  CONFIGURACIÓN
@@ -42,8 +42,8 @@ const FIREBASE_CONFIG = {
 
 const POCKETBASE = {
   url: process.env.PB_URL || 'http://127.0.0.1:8090',
-  email: process.env.PB_EMAIL || 'admin@chatnica.com',
-  password: process.env.PB_PASSWORD || 'admin123456',
+  email: process.env.PB_EMAIL || 'mcalebr04@gmail.com',
+  password: process.env.PB_PASSWORD || 'Juan290683',
 };
 
 // ═══════════════════════════════════════════════════════════════

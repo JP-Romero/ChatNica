@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug - PocketBase Relation Field</title>
+  <style>
+    body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+    .log { margin: 10px 0; padding: 10px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; }
+    .success { background: #064e3b; color: #6ee7b7; }
+    .error { background: #450a0a; color: #fca5a5; }
+    .info { background: #1e3a5f; color: #93c5fd; }
+    pre { background: #111; padding: 10px; border-radius: 6px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Debug - PocketBase Relation Field Format</h1>
+  <div id="output"></div>
+
+  <script type="module">
+    import PocketBase from 'https://cdn.jsdelivr.net/gh/pocketbase/js-sdk@master/dist/pocketbase.es.mjs';
+
+    const output = document.getElementById('output');
+    function log(msg, cls = 'info') {
+      const div = document.createElement('div');
+      div.className = `log ${cls}`;
+      div.textContent = msg;
+      output.appendChild(div);
+    }
+
+    async function main() {
+      const pb = new PocketBase('http://127.0.0.1:8090');
+      await pb.admins.authWithPassword('mcalebr04@gmail.com', 'Juan290683');
+      log('✅ Autenticado', 'success');
+
+      const collections = await pb.collections.getFullList();
+      const users = collections.find(c => c.name === 'users');
+      log(`Users collection ID: ${users.id}`, 'info');
+
+      // Get the exact structure of the users collection fields
+      log('\n=== Users Collection Fields ===', 'info');
+      log(JSON.stringify(users.fields.map(f => ({ name: f.name, type: f.type, id: f.id })), null, 2));
+
+      // Test 1: Create a simple base collection
+      log('\n=== Test 1: Create simple base collection ===', 'info');
+      try {
+        const test1 = await pb.collections.create({
+          name: 'dbg_test1',
+          type: 'base',
+          fields: [{ name: 'title', type: 'text' }],
+        });
+        log(`✅ Created dbg_test1: ${test1.id}`, 'success');
+        log('Fields: ' + JSON.stringify(test1.fields.map(f => ({ name: f.name, type: f.type, id: f.id })), null, 2));
+
+        // Test 2: Add relation field to existing collection
+        log('\n=== Test 2: Add relation field to dbg_test1 ===', 'info');
+        const relationField = {
+          name: 'user_ref',
+          type: 'relation',
+          options: {
+            collectionId: users.id,
+            cascadeDelete: false,
+            maxSelect: 1,
+          },
+        };
+        log('Sending field: ' + JSON.stringify(relationField, null, 2));
+
+        const updated = await pb.collections.update(test1.id, {
+          fields: [...test1.fields, relationField],
+        });
+        log('✅ Updated dbg_test1', 'success');
+        log('Fields: ' + JSON.stringify(updated.fields.map(f => ({ name: f.name, type: f.type, collectionId: f.options?.collectionId })), null, 2));
+
+        // Test 3: Create collection with relation in one step
+        log('\n=== Test 3: Create collection with relation in one step ===', 'info');
+        try {
+          const test3 = await pb.collections.create({
+            name: 'dbg_test3',
+            type: 'base',
+            fields: [
+              { name: 'title', type: 'text' },
+              {
+                name: 'user_ref',
+                type: 'relation',
+                options: {
+                  collectionId: users.id,
+                  cascadeDelete: false,
+                  maxSelect: 1,
+                },
+              },
+            ],
+          });
+          log('✅ Created dbg_test3', 'success');
+          log('Fields: ' + JSON.stringify(test3.fields.map(f => ({ name: f.name, type: f.type, collectionId: f.options?.collectionId })), null, 2));
+        } catch (e) {
+          log('❌ Failed: ' + e.message, 'error');
+          log('Response: ' + JSON.stringify(e.data, null, 2), 'error');
+        }
+
+        // Test 4: Try with collection NAME instead of ID
+        log('\n=== Test 4: Create with collection NAME ===', 'info');
+        try {
+          const test4 = await pb.collections.create({
+            name: 'dbg_test4',
+            type: 'base',
+            fields: [
+              { name: 'title', type: 'text' },
+              {
+                name: 'user_ref',
+                type: 'relation',
+                options: {
+                  collectionId: 'users',
+                  cascadeDelete: false,
+                  maxSelect: 1,
+                },
+              },
+            ],
+          });
+          log('✅ Created dbg_test4', 'success');
+        } catch (e) {
+          log('❌ Failed: ' + e.message, 'error');
+          log('Response: ' + JSON.stringify(e.data, null, 2), 'error');
+        }
+
+        // Cleanup
+        await pb.collections.delete('dbg_test1');
+        await pb.collections.delete('dbg_test3').catch(() => {});
+        await pb.collections.delete('dbg_test4').catch(() => {});
+        log('\n🧹 Cleaned up test collections', 'info');
+
+      } catch (e) {
+        log('❌ Error: ' + e.message, 'error');
+        log('Full error: ' + JSON.stringify(e, null, 2), 'error');
+      }
+    }
+
+    main();
+  </script>
+</body>
+</html>
