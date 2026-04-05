@@ -77,7 +77,14 @@ class ApiClient(private val preferencesManager: PreferencesManager) {
             multipartBuilder.addFormDataPart(key, value)
         }
         if (fileField != null && file != null) {
-            val mediaType = "image/*".toMediaType()
+            val extension = file.extension.lowercase()
+            val mimeType = when (extension) {
+                "png" -> "image/png"
+                "gif" -> "image/gif"
+                "webp" -> "image/webp"
+                else -> "image/jpeg"
+            }
+            val mediaType = mimeType.toMediaType()
             multipartBuilder.addFormDataPart(fileField, file.name, RequestBody.create(mediaType, file))
         }
         val requestBody = multipartBuilder.build()

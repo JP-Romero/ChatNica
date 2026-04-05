@@ -278,7 +278,6 @@ class PocketBaseService(private val client: ApiClient) {
         recordId: String,
         onEvent: (String) -> Unit
     ): okhttp3.Call {
-        val baseUrl = runBlocking { client.httpClient }
         val token = client.getToken() ?: ""
         val pbUrl = runBlocking {
             com.chatnica.app.ChatNicaApplication.instance.preferencesManager.pbUrl.first()
