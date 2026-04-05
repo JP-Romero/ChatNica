@@ -274,15 +274,12 @@ class PocketBaseService(private val client: ApiClient) {
     // ─── Realtime (SSE) ───────────────────────────────────────────────────────
 
     fun subscribeToRealtime(
+        pbUrl: String,
         collection: String,
         recordId: String,
         onEvent: (String) -> Unit
     ): okhttp3.Call {
         val token = client.getToken() ?: ""
-        val pbUrl = runBlocking {
-            com.chatnica.app.ChatNicaApplication.instance.preferencesManager.pbUrl.first()
-                ?: com.chatnica.app.data.local.PreferencesManager.DEFAULT_PB_URL
-        }
         val sseUrl = "$pbUrl/api/realtime"
 
         val request = Request.Builder()
@@ -309,6 +306,3 @@ class PocketBaseService(private val client: ApiClient) {
         return client.httpClient.newCall(request)
     }
 }
-
-// Needed for runBlocking inside subscribeToRealtime
-private fun <T> runBlocking(block: suspend () -> T): T = kotlinx.coroutines.runBlocking { block() }
